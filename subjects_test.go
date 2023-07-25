@@ -152,7 +152,7 @@ func TestLenSlice(t *testing.T) {
 		len:  6,
 		data: []byte("Hello!"),
 	}
-	m := LenSlice(&test.data, &test.len, func() byte { return 0 }, func(r *byte) Mapping { return Byte(r) })
+	m := LenSlice(&test.data, &test.len, func(r *byte) Mapping { return Byte(r) })
 
 	var (
 		buf    bytes.Buffer
@@ -168,9 +168,7 @@ func TestLenSlice(t *testing.T) {
 
 func TestDynamicSlice(t *testing.T) {
 	data := []int16{1, -2, 3}
-	m := DynamicSlice(&data, func() int16 {
-		return 0
-	}, func(b *int16) Mapping {
+	m := DynamicSlice(&data, func(b *int16) Mapping {
 		return Int(b)
 	})
 

@@ -303,10 +303,9 @@ func LenBytes[S SizeType](buf *[]byte, length *S) Mapping {
 
 // Slice will produce a mapping informed from the given functions to use a slice of values.
 // The slice length must be known ahead of time.
-// The allocNext function will be used to create an initialized value of type E, and may be used to set default values.
 // The mapVal function will be used to create a Mapping that relates to the type returned from allocNext.
 // The returned Mapping will orchestrate the array construction according to the given functions.
-func Slice[E any, S SizeType](target *[]E, count S, allocNext func() E, mapVal func(*E) Mapping) Mapping {
+func Slice[E any, S SizeType](target *[]E, count S, mapVal func(*E) Mapping) Mapping {
 	if target == nil {
 		return nilMapping
 	}
@@ -315,7 +314,7 @@ func Slice[E any, S SizeType](target *[]E, count S, allocNext func() E, mapVal f
 			input := make([]E, count)
 			i := S(0)
 			for i < count {
-				e := allocNext()
+				var e E
 				m := mapVal(&e)
 				if err := m.Read(r, endian); err != nil {
 					return err
@@ -341,7 +340,7 @@ func Slice[E any, S SizeType](target *[]E, count S, allocNext func() E, mapVal f
 
 // LenSlice is for situations where a slice is encoded with its length prepended.
 // Otherwise, this behaves exactly like Slice.
-func LenSlice[E any, S SizeType](target *[]E, count *S, allocNext func() E, mapVal func(*E) Mapping) Mapping {
+func LenSlice[E any, S SizeType](target *[]E, count *S, mapVal func(*E) Mapping) Mapping {
 	if target == nil {
 		return nilMapping
 	}
@@ -353,13 +352,13 @@ func LenSlice[E any, S SizeType](target *[]E, count *S, allocNext func() E, mapV
 			if err := Size(count).Read(r, endian); err != nil {
 				return err
 			}
-			return Slice(target, *count, allocNext, mapVal).Read(r, endian)
+			return Slice(target, *count, mapVal).Read(r, endian)
 		},
 		write: func(w io.Writer, endian binary.ByteOrder) error {
 			if err := Size(count).Write(w, endian); err != nil {
 				return err
 			}
-			return Slice(target, *count, allocNext, mapVal).Write(w, endian)
+			return Slice(target, *count, mapVal).Write(w, endian)
 		},
 	}
 }
@@ -368,18 +367,18 @@ func LenSlice[E any, S SizeType](target *[]E, count *S, allocNext func() E, mapV
 // A uint32 will be used to store the size of the given slice, but it's not necessary to read this from a field, rather it will be discovered at write time.
 // This means that the size will be available at read time by first reading the uint32 with LenSlice, without requiring a caller provided field.
 // In a scenario where a slice in a struct is used, this makes it easier to read and write because the struct doesn't need to store the size in a field.
-func DynamicSlice[E any](target *[]E, allocNext func() E, mapVal func(*E) Mapping) Mapping {
+func DynamicSlice[E any](target *[]E, mapVal func(*E) Mapping) Mapping {
 	if target == nil {
 		return nilMapping
 	}
 	return &mapping{
 		read: func(r io.Reader, endian binary.ByteOrder) error {
 			var length uint32
-			return LenSlice(target, &length, allocNext, mapVal).Read(r, endian)
+			return LenSlice(target, &length, mapVal).Read(r, endian)
 		},
 		write: func(w io.Writer, endian binary.ByteOrder) error {
 			var length = uint32(len(*target))
-			return LenSlice(target, &length, allocNext, mapVal).Write(w, endian)
+			return LenSlice(target, &length, mapVal).Write(w, endian)
 		},
 	}
 }
