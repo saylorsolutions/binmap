@@ -15,43 +15,25 @@ var (
 // ReadFunc is a function that reads data from a binary source.
 type ReadFunc func(r io.Reader, endian binary.ByteOrder) error
 
-func (f ReadFunc) Then(then ReadFunc) ReadFunc {
-	return func(r io.Reader, endian binary.ByteOrder) error {
-		if err := f(r, endian); err != nil {
-			return err
-		}
-		return then(r, endian)
-	}
-}
-
 // WriteFunc is a function that writes data to a binary target.
 type WriteFunc func(w io.Writer, endian binary.ByteOrder) error
 
-func (f WriteFunc) Then(then WriteFunc) WriteFunc {
-	return func(w io.Writer, endian binary.ByteOrder) error {
-		if err := f(w, endian); err != nil {
-			return err
-		}
-		return then(w, endian)
-	}
-}
-
-// Mapping is any procedure that knows how to read from and write to binary data, given an endianness policy.
-type Mapping interface {
+// Mapper is any procedure that knows how to read from and write to binary data, given an endianness policy.
+type Mapper interface {
 	// Read data from a binary source.
 	Read(r io.Reader, endian binary.ByteOrder) error
 	// Write data to a binary target.
 	Write(w io.Writer, endian binary.ByteOrder) error
 }
 
-type mapping struct {
+type mapper struct {
 	read  ReadFunc
 	write WriteFunc
 }
 
-// MapSequence creates a Mapping that uses each given Mapping in order.
-func MapSequence(mappings ...Mapping) Mapping {
-	return &mapping{
+// MapSequence creates a Mapper that uses each given Mapper in order.
+func MapSequence(mappings ...Mapper) Mapper {
+	return &mapper{
 		read: func(r io.Reader, endian binary.ByteOrder) error {
 			for _, m := range mappings {
 				if err := m.Read(r, endian); err != nil {
@@ -71,21 +53,21 @@ func MapSequence(mappings ...Mapping) Mapping {
 	}
 }
 
-func (m *mapping) Read(r io.Reader, endian binary.ByteOrder) error {
+func (m *mapper) Read(r io.Reader, endian binary.ByteOrder) error {
 	if m.read != nil {
 		return m.read(r, endian)
 	}
 	return errors.New("unimplemented")
 }
 
-func (m *mapping) Write(w io.Writer, endian binary.ByteOrder) error {
+func (m *mapper) Write(w io.Writer, endian binary.ByteOrder) error {
 	if m.write != nil {
 		return m.write(w, endian)
 	}
 	return errors.New("unimplemented")
 }
 
-var nilMapping = &mapping{
+var nilMapping = &mapper{
 	read: func(r io.Reader, endian binary.ByteOrder) error {
 		return ErrNilReadWrite
 	},
@@ -94,23 +76,23 @@ var nilMapping = &mapping{
 	},
 }
 
-// Any is provided to make it easy to create a custom Mapping for any given type.
-func Any[T any](target *T, read ReadFunc, write WriteFunc) Mapping {
+// Any is provided to make it easy to create a custom Mapper for any given type.
+func Any[T any](target *T, read ReadFunc, write WriteFunc) Mapper {
 	if target == nil {
 		return nilMapping
 	}
-	return &mapping{
+	return &mapper{
 		read:  read,
 		write: write,
 	}
 }
 
 // Byte will map a single byte.
-func Byte(b *byte) Mapping {
+func Byte(b *byte) Mapper {
 	if b == nil {
 		return nilMapping
 	}
-	return &mapping{
+	return &mapper{
 		read: func(r io.Reader, endian binary.ByteOrder) error {
 			return binary.Read(r, endian, b)
 		},
@@ -121,11 +103,11 @@ func Byte(b *byte) Mapping {
 }
 
 // Bool will map a single boolean.
-func Bool(b *bool) Mapping {
+func Bool(b *bool) Mapper {
 	if b == nil {
 		return nilMapping
 	}
-	return &mapping{
+	return &mapper{
 		read: func(r io.Reader, endian binary.ByteOrder) error {
 			return binary.Read(r, endian, b)
 		},
@@ -140,11 +122,11 @@ type AnyInt interface {
 }
 
 // Int will map any integer, excluding int.
-func Int[T AnyInt](i *T) Mapping {
+func Int[T AnyInt](i *T) Mapper {
 	if i == nil {
 		return nilMapping
 	}
-	return &mapping{
+	return &mapper{
 		read: func(r io.Reader, endian binary.ByteOrder) error {
 			return binary.Read(r, endian, i)
 		},
@@ -159,11 +141,11 @@ type AnyFloat interface {
 }
 
 // Float will map any floating point value.
-func Float[T AnyFloat](f *T) Mapping {
+func Float[T AnyFloat](f *T) Mapper {
 	if f == nil {
 		return nilMapping
 	}
-	return &mapping{
+	return &mapper{
 		read: func(r io.Reader, endian binary.ByteOrder) error {
 			return binary.Read(r, endian, f)
 		},
@@ -175,11 +157,11 @@ func Float[T AnyFloat](f *T) Mapping {
 
 // FixedString will map a string with a max length that is known ahead of time.
 // The target string will not contain any zero bytes if the encoded string is less than the space allowed.
-func FixedString(s *string, length int) Mapping {
+func FixedString(s *string, length int) Mapper {
 	if s == nil {
 		return nilMapping
 	}
-	return &mapping{
+	return &mapper{
 		read: func(r io.Reader, endian binary.ByteOrder) error {
 			buf := make([]byte, length)
 			if err := binary.Read(r, endian, buf); err != nil {
@@ -198,11 +180,11 @@ func FixedString(s *string, length int) Mapping {
 
 // NullTermString will read and write null-byte terminated string.
 // The string provided doesn't have to contain a null terminator, since one will be added on write.
-func NullTermString(s *string) Mapping {
+func NullTermString(s *string) Mapper {
 	if s == nil {
 		return nilMapping
 	}
-	return &mapping{
+	return &mapper{
 		read: func(r io.Reader, endian binary.ByteOrder) error {
 			var (
 				buf bytes.Buffer
@@ -238,11 +220,11 @@ type SizeType interface {
 }
 
 // Size maps any value that can reasonably be used to express a size.
-func Size[S SizeType](size *S) Mapping {
+func Size[S SizeType](size *S) Mapper {
 	if size == nil {
 		return nilMapping
 	}
-	return &mapping{
+	return &mapper{
 		read: func(r io.Reader, endian binary.ByteOrder) error {
 			return binary.Read(r, endian, size)
 		},
@@ -253,12 +235,12 @@ func Size[S SizeType](size *S) Mapping {
 }
 
 // FixedBytes maps a byte slice of a known length.
-func FixedBytes[S SizeType](buf *[]byte, length S) Mapping {
+func FixedBytes[S SizeType](buf *[]byte, length S) Mapper {
 	if buf == nil {
 		return nilMapping
 	}
 	sz := uint64(length)
-	return &mapping{
+	return &mapper{
 		read: func(r io.Reader, endian binary.ByteOrder) error {
 			_buf := make([]byte, sz)
 			if err := binary.Read(r, endian, _buf); err != nil {
@@ -276,16 +258,16 @@ func FixedBytes[S SizeType](buf *[]byte, length S) Mapping {
 }
 
 // LenBytes is used for situations where an arbitrarily sized byte slice is encoded after its length.
-// This mapping will read the length, and then length number of bytes into a byte slice.
-// The mapping will write the length and bytes in the same order.
-func LenBytes[S SizeType](buf *[]byte, length *S) Mapping {
+// This mapper will read the length, and then length number of bytes into a byte slice.
+// The mapper will write the length and bytes in the same order.
+func LenBytes[S SizeType](buf *[]byte, length *S) Mapper {
 	if buf == nil {
 		return nilMapping
 	}
 	if length == nil {
 		return nilMapping
 	}
-	return &mapping{
+	return &mapper{
 		read: func(r io.Reader, endian binary.ByteOrder) error {
 			if err := Size(length).Read(r, endian); err != nil {
 				return err
@@ -301,15 +283,15 @@ func LenBytes[S SizeType](buf *[]byte, length *S) Mapping {
 	}
 }
 
-// Slice will produce a mapping informed from the given functions to use a slice of values.
+// Slice will produce a mapper informed from the given function to use a slice of values.
 // The slice length must be known ahead of time.
-// The mapVal function will be used to create a Mapping that relates to the type returned from allocNext.
-// The returned Mapping will orchestrate the array construction according to the given functions.
-func Slice[E any, S SizeType](target *[]E, count S, mapVal func(*E) Mapping) Mapping {
+// The mapVal function will be used to create a Mapper that relates to the type returned from allocNext.
+// The returned Mapper will orchestrate the array construction according to the given function.
+func Slice[E any, S SizeType](target *[]E, count S, mapVal func(*E) Mapper) Mapper {
 	if target == nil {
 		return nilMapping
 	}
-	return &mapping{
+	return &mapper{
 		read: func(r io.Reader, endian binary.ByteOrder) error {
 			input := make([]E, count)
 			i := S(0)
@@ -340,14 +322,14 @@ func Slice[E any, S SizeType](target *[]E, count S, mapVal func(*E) Mapping) Map
 
 // LenSlice is for situations where a slice is encoded with its length prepended.
 // Otherwise, this behaves exactly like Slice.
-func LenSlice[E any, S SizeType](target *[]E, count *S, mapVal func(*E) Mapping) Mapping {
+func LenSlice[E any, S SizeType](target *[]E, count *S, mapVal func(*E) Mapper) Mapper {
 	if target == nil {
 		return nilMapping
 	}
 	if count == nil {
 		return nilMapping
 	}
-	return &mapping{
+	return &mapper{
 		read: func(r io.Reader, endian binary.ByteOrder) error {
 			if err := Size(count).Read(r, endian); err != nil {
 				return err
@@ -367,11 +349,11 @@ func LenSlice[E any, S SizeType](target *[]E, count *S, mapVal func(*E) Mapping)
 // A uint32 will be used to store the size of the given slice, but it's not necessary to read this from a field, rather it will be discovered at write time.
 // This means that the size will be available at read time by first reading the uint32 with LenSlice, without requiring a caller provided field.
 // In a scenario where a slice in a struct is used, this makes it easier to read and write because the struct doesn't need to store the size in a field.
-func DynamicSlice[E any](target *[]E, mapVal func(*E) Mapping) Mapping {
+func DynamicSlice[E any](target *[]E, mapVal func(*E) Mapper) Mapper {
 	if target == nil {
 		return nilMapping
 	}
-	return &mapping{
+	return &mapper{
 		read: func(r io.Reader, endian binary.ByteOrder) error {
 			var length uint32
 			return LenSlice(target, &length, mapVal).Read(r, endian)

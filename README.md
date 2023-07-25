@@ -15,5 +15,5 @@ While this *can* be accomplished with `binary.Read`, I still have the issue of t
 * I'd like to be able to declare dynamic behavior, like when the size of the next read is determined by the current field.
 * I'd like to declare a read loop based on a read field value, and pass the loop construct to a larger pipeline.
 * ~~Struct tag field binding would be fantastic, but reflection is... fraught. I'll see how this goes, and I'll probably take some hints from how the stdlib is handling this.~~
-  * There's too much possibility of dynamic logic with a lot of binary payloads, and the number of edge cases for implementing this is more than I want to deal with.
+  * There's too much possibility of dynamic or dependent logic with a lot of binary payloads, and the number of edge cases for implementing this is more than I want to deal with.
   * I'm pretty happy with the API for mapping definition so far, and I'd rather simplify that than get into reflection with struct field tags. I feel like it's much more understandable (and thus maintainable) code.
