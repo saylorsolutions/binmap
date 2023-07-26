@@ -119,6 +119,7 @@ func TestNullTermString(t *testing.T) {
 	buf.Reset()
 	buf.Write(out)
 	assert.NoError(t, m.Read(&buf, endian))
+	assert.Equal(t, "Hi", s)
 }
 
 func TestLenBytes(t *testing.T) {
