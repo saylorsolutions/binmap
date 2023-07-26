@@ -167,6 +167,9 @@ func FixedString(s *string, length int) Mapper {
 			if err := binary.Read(r, endian, buf); err != nil {
 				return err
 			}
+			buf = bytes.TrimRightFunc(buf, func(r rune) bool {
+				return r == 0
+			})
 			*s = string(buf)
 			return nil
 		},
