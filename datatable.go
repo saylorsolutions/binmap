@@ -79,7 +79,11 @@ type FieldMapper interface {
 // MapField will associate a Mapper to each element in a target slice within a FieldMapper.
 func MapField[T any](target *[]T, mapFn func(*T) Mapper) FieldMapper {
 	return &fieldMapper[T]{
-		fieldReader: newFieldReader[T](target, mapFn),
+		fieldReader: &fieldReader[T]{
+			target: target,
+			fn:     mapFn,
+			buf:    make([]T, 0, initFieldCap),
+		},
 		fieldWriter: &fieldWriter[T]{
 			target: target,
 			fn:     mapFn,
@@ -96,14 +100,6 @@ type fieldReader[T any] struct {
 	target *[]T
 	buf    []T
 	fn     func(*T) Mapper
-}
-
-func newFieldReader[T any](target *[]T, fn func(*T) Mapper) *fieldReader[T] {
-	return &fieldReader[T]{
-		target: target,
-		fn:     fn,
-		buf:    make([]T, 0, initFieldCap),
-	}
 }
 
 func (fr *fieldReader[T]) readNext(r io.Reader, endian binary.ByteOrder) error {
