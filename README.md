@@ -42,6 +42,8 @@ Keep in mind that type restrictions mostly come from what [binary.Read and binar
 * Floats with `Float`.
 * Booleans with `Bool`.
 * Bytes with `Byte`, and byte slices with `FixedBytes` and `LenBytes`.
+* Complex 64/128 with `Complex`.
+* Signed and unsigned varints with `Varint`/`Uvarint`.
 * General slice mappers are provided with `Slice`, `LenSlice`, and `DynamicSlice`.
 * Size types with `Size`, which are restricted to any known-size, unsigned integer.
 * Strings, both with `FixedString` for fixed-width string fields, and null-terminated strings with `NullTermString`.
