@@ -87,3 +87,69 @@ func Complex[T AnyComplex](target *T) Mapper {
 		},
 	)
 }
+
+var _ io.ByteReader = (*unbufferedByteReader)(nil)
+
+type unbufferedByteReader struct {
+	reader io.Reader
+	buf    []byte
+}
+
+func (u *unbufferedByteReader) ReadByte() (byte, error) {
+	if len(u.buf) == 0 {
+		u.buf = make([]byte, 1)
+	}
+	_, err := u.reader.Read(u.buf)
+	if err != nil {
+		return 0, err
+	}
+	return u.buf[0], nil
+}
+
+// Varint encodes 16, 32, or 64-bit signed integers as a variable length integer.
+// This is generally more efficient than reading/writing the full byte length.
+func Varint(target *int64) Mapper {
+	if target == nil {
+		return nilMapping
+	}
+	return Any(
+		func(r io.Reader, endian binary.ByteOrder) error {
+			ubr := &unbufferedByteReader{reader: r}
+			val, err := binary.ReadVarint(ubr)
+			if err != nil {
+				return err
+			}
+			*target = val
+			return nil
+		},
+		func(w io.Writer, endian binary.ByteOrder) error {
+			buf := make([]byte, binary.MaxVarintLen64)
+			n := binary.PutVarint(buf, *target)
+			return binary.Write(w, endian, buf[:n])
+		},
+	)
+}
+
+// Uvarint encodes 16, 32, or 64-bit unsigned integers as a variable length integer.
+// This is generally more efficient than reading/writing the full byte length.
+func Uvarint(target *uint64) Mapper {
+	if target == nil {
+		return nilMapping
+	}
+	return Any(
+		func(r io.Reader, endian binary.ByteOrder) error {
+			ubr := &unbufferedByteReader{reader: r}
+			val, err := binary.ReadUvarint(ubr)
+			if err != nil {
+				return err
+			}
+			*target = val
+			return nil
+		},
+		func(w io.Writer, endian binary.ByteOrder) error {
+			buf := make([]byte, binary.MaxVarintLen64)
+			n := binary.PutUvarint(buf, *target)
+			return binary.Write(w, endian, buf[:n])
+		},
+	)
+}
