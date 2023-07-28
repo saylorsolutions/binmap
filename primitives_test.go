@@ -58,3 +58,23 @@ func TestFloat(t *testing.T) {
 	assert.Equal(t, float32(0.5), f1)
 	assert.Equal(t, 1.5, f2)
 }
+
+func TestComplex(t *testing.T) {
+	var (
+		buf    bytes.Buffer
+		endian = binary.BigEndian
+	)
+	c1 := complex(float32(3.14), float32(1))
+	c2 := complex(4.13, 5)
+
+	m := MapSequence(
+		Complex(&c1),
+		Complex(&c2),
+	)
+
+	assert.NoError(t, m.Write(&buf, endian))
+	c1, c2 = 0, 0
+	assert.NoError(t, m.Read(&buf, endian))
+	assert.Equal(t, complex(float32(3.14), float32(1)), c1)
+	assert.Equal(t, complex(4.13, 5), c2)
+}

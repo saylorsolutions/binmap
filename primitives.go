@@ -72,3 +72,18 @@ func Float[T AnyFloat](f *T) Mapper {
 		},
 	}
 }
+
+type AnyComplex interface {
+	complex64 | complex128
+}
+
+func Complex[T AnyComplex](target *T) Mapper {
+	return Any(
+		func(r io.Reader, endian binary.ByteOrder) error {
+			return binary.Read(r, endian, target)
+		},
+		func(w io.Writer, endian binary.ByteOrder) error {
+			return binary.Write(w, endian, target)
+		},
+	)
+}
