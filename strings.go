@@ -45,14 +45,13 @@ func NullTermString(s *string) Mapper {
 		read: func(r io.Reader, endian binary.ByteOrder) error {
 			var (
 				buf bytes.Buffer
-				rb  = make([]byte, 1)
+				ubr = &unbufferedByteReader{reader: r}
 			)
 			for {
-				_, err := r.Read(rb)
+				b, err := ubr.ReadByte()
 				if err != nil {
 					return err
 				}
-				b := rb[0]
 				if b == 0 {
 					*s = buf.String()
 					return nil
