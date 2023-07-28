@@ -29,28 +29,6 @@ type mapper struct {
 	write WriteFunc
 }
 
-// MapSequence creates a Mapper that uses each given Mapper in order.
-func MapSequence(mappings ...Mapper) Mapper {
-	return &mapper{
-		read: func(r io.Reader, endian binary.ByteOrder) error {
-			for _, m := range mappings {
-				if err := m.Read(r, endian); err != nil {
-					return err
-				}
-			}
-			return nil
-		},
-		write: func(w io.Writer, endian binary.ByteOrder) error {
-			for _, m := range mappings {
-				if err := m.Write(w, endian); err != nil {
-					return err
-				}
-			}
-			return nil
-		},
-	}
-}
-
 func (m *mapper) Read(r io.Reader, endian binary.ByteOrder) error {
 	if m.read != nil {
 		return m.read(r, endian)
@@ -74,10 +52,45 @@ var nilMapping = &mapper{
 	},
 }
 
+// MapSequence creates a Mapper that uses each given Mapper in order.
+func MapSequence(mappings ...Mapper) Mapper {
+	return &mapper{
+		read: func(r io.Reader, endian binary.ByteOrder) error {
+			for _, m := range mappings {
+				if err := m.Read(r, endian); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+		write: func(w io.Writer, endian binary.ByteOrder) error {
+			for _, m := range mappings {
+				if err := m.Write(w, endian); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	}
+}
+
 // Any is provided to make it easy to create a custom Mapper for any given type.
 func Any(read ReadFunc, write WriteFunc) Mapper {
 	return &mapper{
 		read:  read,
 		write: write,
 	}
+}
+
+// OverrideEndian will override the endian settings for a single operation.
+// This is useful for UTF-16 strings which are often read/written little-endian.
+func OverrideEndian(m Mapper, endian binary.ByteOrder) Mapper {
+	return Any(
+		func(r io.Reader, _ binary.ByteOrder) error {
+			return m.Read(r, endian)
+		},
+		func(w io.Writer, _ binary.ByteOrder) error {
+			return m.Write(w, endian)
+		},
+	)
 }
