@@ -77,6 +77,7 @@ type AnyComplex interface {
 	complex64 | complex128
 }
 
+// Complex will map a complex64/128 number.
 func Complex[T AnyComplex](target *T) Mapper {
 	return Any(
 		func(r io.Reader, endian binary.ByteOrder) error {
