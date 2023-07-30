@@ -9,6 +9,19 @@ If an error occurs at any point, then I'm able to fail fast and handle one error
 I'd also like to work easily with `io.Reader`s rather than having to read everything into memory first to dissect it piecemeal.
 While this *can* be accomplished with `binary.Read`, I still have the issue of too much error handling code cluttered around the code I *want* to write.
 
+## Why not just use Gob?
+
+Go provides a binary encoding/decoding protocol for Go types with Gob.
+This is useful for Go-only environments, but it's a bit cumbersome to customize for cases that fall outside the "Gob way" of serializing/deserializing structs.
+
+I needed a library that allows me to more exactly and compactly specify a binary mapping protocol with a nice to use API, and I didn't see anything that met this need directly in the standard library (see existing API notes above).
+
+If you're only using Go, don't need to conform to some external protocol or define your own, and don't need to do too much format customization, then Gob may be the right choice for you.
+
+There are other, *standardized* formats available that may be a better fit, depending on your use-case and constraints:
+* [msgpack](https://github.com/msgpack/msgpack)
+* [binc](https://github.com/ugorji/binc)
+
 ## Goals
 
 * I'd like to have an easier to use interface for reading/writing binary data.
@@ -47,6 +60,9 @@ Keep in mind that type restrictions mostly come from what [binary.Read and binar
 * General slice mappers are provided with `Slice`, `LenSlice`, and `DynamicSlice`.
 * Size types with `Size`, which are restricted to any known-size, unsigned integer.
 * Strings, both with `FixedString` for fixed-width string fields, and null-terminated strings with `NullTermString`.
+  * Plain strings are always encoded as UTF-8 strings.
+  * There are UTF-16 variants of these mappers that have the "Uni16" prefix.
+  * In the case where you're reading/writing win32 UTF-16 strings - which are consistently encoded little-endian - and that conflicts with your endianness policy, there is an `OverrideEndian` function to express this policy change with a single mapper.
 * More interesting types, such as `Map` for arbitrary maps, and even `DataTable` for persisting structs-of-arrays.
 * As already mentioned, the `Any` mapper can be used to add arbitrary mapping logic for any type you'd like to express.
   * An `Any` mapper just needs a `ReadFunc` and `WriteFunc`.
@@ -58,6 +74,12 @@ There are few assumptions made about or constraints applied to your data represe
 This means that you are charged with managing things like binary format migrations and validation.
 Binary serialization can get pretty complicated, depending on the data structures involved.
 Fortunately, there are some commonly used patterns and library features that help manage this complexity.
+
+### General guidelines
+
+* Any given `Mapper` is not intended to live very long in memory. It's generally a single-use construct.
+* Mapping is not concurrency safe by default. This library makes no attempt to "lock/unlock" an object in any way before, during, or after (de)serialization.
+  * This kind of cross-cutting logic could be added with an `Any` mapper.
 
 ### Mapper method
 
