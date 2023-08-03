@@ -70,16 +70,16 @@ Keep in mind that type restrictions mostly come from what [binary.Read and binar
 
 ## Common patterns
 
-There are few assumptions made about or constraints applied to your data representation, but all persisted data must either be of a fixed size when persisted, or include an unambiguous delimiter (like a null terminator for a string).
-This means that you are charged with managing things like binary format migrations and validation.
 Binary serialization can get pretty complicated, depending on the data structures involved.
-Fortunately, there are some commonly used patterns and library features that help manage this complexity.
+Fortunately, there are some commonly used patterns, library features, and guidelines that help manage this complexity.
 
-### General guidelines
-
+* There are few assumptions made about or constraints applied to your data representation, but all persisted data must either be of a fixed size when persisted, or include an unambiguous delimiter (like a null terminator for a string).
+  * This means that you are charged with managing things like binary format migrations and validation (see the versioned mapping and validated read sections below).
 * Any given `Mapper` is not intended to live very long in memory. It's generally a single-use construct.
-* Mapping is not concurrency safe by default. This library makes no attempt to "lock/unlock" an object in any way before, during, or after (de)serialization.
-  * This kind of cross-cutting logic could be added with an `Any` mapper.
+* Mapping is not concurrency safe by default. This library makes no attempt to "lock/unlock" an object in any way before, during, or after (de)serialization, unless your mapper is wrapped with the `Lock` or `RWLock` helpers.
+* Panics that happen within a `Mapper`'s Read or Write methods will be propagated to the caller, unless it's wrapped with an `OnPanic` helper.
+
+See the `example` directory for more details.
 
 ### Mapper method
 
@@ -213,37 +213,55 @@ func ReadUser(r io.Reader) (*User, error) {
 }
 ```
 
-### Validated read
+### ValidateRead and NormalizeWrite
 
 Input validation is important, especially in cases where changes in persisted data could lead to changes to a struct's internal, unexposed state.
-This can easily be added in the Read and Write methods added above to ensure that business rule constraints are encoded as part of the persistence logic.
+This can easily be added in the Read and Write methods added above, or with `ValidateRead` and `NormalizeWrite`, to ensure that business rule constraints are encoded as part of the persistence logic.
 
 ```golang
 var ErrNoContact = errors.New("all users must have a contact")
 
-func (u *User) Read(r io.Reader) error {
-  if err := u.mapper().Read(r, binary.BigEndian); err != nil {
-	  return err
-  }
-  if len(u.contacts) == 0 {
-	  return ErrNoContact
-  }
-}
+mapper = bin.ValidateRead(mapper, func() error {
+	if len(u.contacts) == 0 {
+		return ErrNoContact
+	}
+})
+mapper = bin.NormalizeWrite(mapper, func() error {
+	if len(u.contacts) == 0 {
+		return ErrNoContact
+	}
+})
+```
 
-func (u *User) Write(w io.Writer) error {
-  if len(u.contacts) == 0 {
-    return ErrNoContact
-  }
-  if err := u.mapper().Write(w, binary.BigEndian); err != nil {
-    return err
-  }
-}
+For more complex logic, it may be preferrable to use `EventHandler`.
+
+### EventHandler
+
+Additional, custom logic can be added as part of mapping with `NewEventHandler`.
+
+> **Note:** An After* handler will be run regardless, but an error returned from an After* handler will only be propagated if the underlying read/write operation returns a nil error.
+
+```golang
+mapper = bin.NewEventHandler(mapper, bin.EventHandler{
+	BeforeRead: func() error {
+		log.Println("About to read a thing...")
+	}
+	AfterRead: func(err error) error {
+		if err != nil {
+			log.Println("Uh-oh, failed to write:", err)
+		} else {
+			log.Println("Successfully read a thing")
+		}
+		return err
+	}
+})
 ```
 
 ### Versioned mapping
 
-As mentioned previously, versioned mapping can be very important if the binary representation is expected to change (often or not), since it's effectively a breaking change.
-This can be handled pretty readily with a little forethought.
+A binary representation of state can be stored permanently, so it's important to consider versioned mapping if the binary representation is expected to change (often or not), since that change is effectively a breaking change.
+
+This can be handled pretty easily with a little forethought.
 
 ```golang
 import (
