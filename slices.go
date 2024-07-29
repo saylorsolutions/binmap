@@ -154,3 +154,47 @@ func DynamicSlice[E any](target *[]E, mapVal func(*E) Mapper) Mapper {
 		},
 	}
 }
+
+// Remaining reads using the provided [Mapper] until the end of the file, and writes the entire slice.
+// No leading length value is read or written.
+func Remaining[E any](target *[]E, mapVal func(*E) Mapper) Mapper {
+	if target == nil {
+		return nilMapping
+	}
+	return &mapper{
+		read: func(r io.Reader, endian binary.ByteOrder) error {
+			var val E
+			for {
+				if err := mapVal(&val).Read(r, endian); err != nil {
+					if err == io.EOF {
+						return nil
+					}
+					return err
+				}
+				*target = append(*target, val)
+			}
+		},
+		write: func(w io.Writer, endian binary.ByteOrder) error {
+			for _, val := range *target {
+				if err := mapVal(&val).Write(w, endian); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	}
+}
+
+// FixedPadding writes a padding amount of zero bytes, and reads through a fixed amount of bytes assumed to be padding.
+func FixedPadding[S SizeType](length S) Mapper {
+	return &mapper{
+		read: func(r io.Reader, endian binary.ByteOrder) error {
+			var padding []byte
+			return FixedBytes(&padding, length).Read(r, endian)
+		},
+		write: func(w io.Writer, endian binary.ByteOrder) error {
+			padding := make([]byte, length)
+			return FixedBytes(&padding, length).Write(w, endian)
+		},
+	}
+}

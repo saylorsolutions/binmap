@@ -70,3 +70,17 @@ func TestDynamicSlice(t *testing.T) {
 	assert.Len(t, data, 3)
 	assert.Equal(t, []int16{1, -2, 3}, data)
 }
+
+func TestRemaining(t *testing.T) {
+	data := []byte{1, 2, 3, 4}
+	var readData []byte
+	m := Remaining(&readData, Byte)
+
+	assert.NoError(t, m.Read(bytes.NewReader(data), binary.BigEndian))
+	assert.Equal(t, []byte{1, 2, 3, 4}, readData)
+
+	var writtenData bytes.Buffer
+	m = Remaining(&data, Byte)
+	assert.NoError(t, m.Write(&writtenData, binary.BigEndian))
+	assert.Equal(t, data, writtenData.Bytes())
+}
