@@ -32,11 +32,6 @@ type mapper struct {
 	write WriteFunc
 }
 
-// CustomMapper will create a new [Mapper] with the given [ReadFunc] and [WriteFunc].
-func CustomMapper(read ReadFunc, write WriteFunc) Mapper {
-	return &mapper{read: read, write: write}
-}
-
 func (m *mapper) Read(r io.Reader, endian binary.ByteOrder) error {
 	if m.read != nil {
 		return m.read(r, endian)
@@ -176,8 +171,13 @@ func NormalizeWrite(mapper Mapper, normalizer BeforeWriteHandler) Mapper {
 	})
 }
 
-// Lock will manage locking and unlocking a sync.Mutex before/after a read/write.
-func Lock(mapper Mapper, mux *sync.Mutex) Mapper {
+// Lock will manage locking and unlocking a [sync.Locker] before/after a read/write.
+// If the underlying Locker is a [sync.RWMutex] (or similar interface), then calls to the [Mapper.Write] method will result in read locking the Locker.
+func Lock(mux sync.Locker, mapper Mapper) Mapper {
+	type rwLocker interface {
+		RLock()
+		RUnlock()
+	}
 	return NewEventHandler(mapper, EventHandler{
 		BeforeRead: func() error {
 			mux.Lock()
@@ -188,34 +188,19 @@ func Lock(mapper Mapper, mux *sync.Mutex) Mapper {
 			return err
 		},
 		BeforeWrite: func() error {
-			mux.Lock()
+			if rwmux, ok := mux.(rwLocker); ok {
+				rwmux.RLock()
+			} else {
+				mux.Lock()
+			}
 			return nil
 		},
 		AfterWrite: func(err error) error {
-			mux.Unlock()
-			return err
-		},
-	})
-}
-
-// RWLock will manage locking and unlocking a sync.RWMutex before/after a read/write.
-// Writing the mapper only requires read locking, while reading with the mapper requires write locking since state is being mutated.
-func RWLock(mapper Mapper, mux *sync.RWMutex) Mapper {
-	return NewEventHandler(mapper, EventHandler{
-		BeforeRead: func() error {
-			mux.Lock()
-			return nil
-		},
-		AfterRead: func(err error) error {
-			mux.Unlock()
-			return err
-		},
-		BeforeWrite: func() error {
-			mux.RLock()
-			return nil
-		},
-		AfterWrite: func(err error) error {
-			mux.RUnlock()
+			if rwmux, ok := mux.(rwLocker); ok {
+				rwmux.RUnlock()
+			} else {
+				mux.Unlock()
+			}
 			return err
 		},
 	})
