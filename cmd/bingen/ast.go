@@ -30,6 +30,10 @@ const (
 	BitFlag16   MapType = "bf16"
 	BitFlag32   MapType = "bf32"
 	BitFlag64   MapType = "bf64"
+	BitFlagEq8  MapType = "bfe8"
+	BitFlagEq16 MapType = "bfe16"
+	BitFlagEq32 MapType = "bfe32"
+	BitFlagEq64 MapType = "bfe64"
 	BitFlagVal  MapType = "bf"
 	F32         MapType = "f32"
 	F64         MapType = "f64"
@@ -87,6 +91,14 @@ func matchType(str string) MapType {
 	case BitFlag32:
 		fallthrough
 	case BitFlag64:
+		fallthrough
+	case BitFlagEq8:
+		fallthrough
+	case BitFlagEq16:
+		fallthrough
+	case BitFlagEq32:
+		fallthrough
+	case BitFlagEq64:
 		fallthrough
 	case BitFlagVal:
 		fallthrough
@@ -160,6 +172,14 @@ func goType(mt MapType) string {
 	case BitFlag32:
 		return "uint32"
 	case BitFlag64:
+		return "uint64"
+	case BitFlagEq8:
+		return "uint8"
+	case BitFlagEq16:
+		return "uint16"
+	case BitFlagEq32:
+		return "uint32"
+	case BitFlagEq64:
 		return "uint64"
 	case F32:
 		return "float32"
@@ -235,6 +255,14 @@ func elemMapper(mt MapType) string {
 	case BitFlag32:
 		fallthrough
 	case BitFlag64:
+		fallthrough
+	case BitFlagEq8:
+		fallthrough
+	case BitFlagEq16:
+		fallthrough
+	case BitFlagEq32:
+		fallthrough
+	case BitFlagEq64:
 		return "bin.Int"
 	case F32:
 		fallthrough
@@ -318,7 +346,8 @@ func (m *fieldMapping) MagicNumberValues() string {
 }
 
 type bitFlags struct {
-	Field   string
-	FlagID  string
-	FlagVal string
+	Field         string
+	FlagID        string
+	FlagVal       string
+	BitFlagEquals bool
 }

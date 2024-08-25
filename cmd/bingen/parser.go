@@ -202,7 +202,8 @@ func mapField(s *structMapping, field *fieldMapping, next iterator) error {
 			return fmt.Errorf("invalid fixed field size string '%s'", fixedLen.tok)
 		}
 		field.FixedLen = uint64(size)
-	case tokenIs(mapping, BitFlag8, BitFlag16, BitFlag32, BitFlag64):
+	case tokenIs(mapping, BitFlag8, BitFlag16, BitFlag32, BitFlag64, BitFlagEq8, BitFlagEq16, BitFlagEq32, BitFlagEq64):
+		useEqualComparison := tokenIs(mapping, BitFlagEq8, BitFlagEq16, BitFlagEq32, BitFlagEq64)
 		for {
 			// Try to resolve bit flag values.
 			bf, ok := next()
@@ -228,9 +229,10 @@ func mapField(s *structMapping, field *fieldMapping, next iterator) error {
 				return unexpectedToken(val, Arg)
 			}
 			s.BitFlags = append(s.BitFlags, bitFlags{
-				Field:   field.Name,
-				FlagID:  name.tok,
-				FlagVal: val.tok,
+				Field:         field.Name,
+				FlagID:        name.tok,
+				FlagVal:       val.tok,
+				BitFlagEquals: useEqualComparison,
 			})
 		}
 	case tokenIs(mapping, Array):
