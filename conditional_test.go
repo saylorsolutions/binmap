@@ -3,7 +3,9 @@ package bin
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"github.com/stretchr/testify/assert"
+	"log"
 	"testing"
 )
 
@@ -48,4 +50,45 @@ func TestConditional(t *testing.T) {
 	buf.Reset()
 	assert.NoError(t, noopCase.Read(&buf, endian))
 	assert.Equal(t, 0, buf.Len())
+}
+
+func ExampleConditional() {
+	var (
+		outputInt        = true
+		val       uint16 = 5
+		buf       bytes.Buffer
+		endian    = binary.BigEndian
+	)
+	m := Conditional(
+		func() bool {
+			return outputInt
+		},
+		Int(&val),
+		FixedPadding[uint64](2),
+	)
+
+	// Effective read/write
+	_ = m.Write(&buf, endian)
+	val = 10
+	_ = m.Read(&buf, endian)
+	fmt.Printf("Read back %d\n", val)
+	if val != 5 {
+		log.Fatalln("Should have read back 5")
+	}
+
+	// Disable this mapping.
+	outputInt = false
+	buf.Reset()
+	val = 15
+	_ = m.Write(&buf, endian)
+	val = 0
+	_ = m.Read(&buf, endian)
+	fmt.Printf("Value is still %d\n", val)
+	if val != 0 {
+		log.Fatalln("Should have read back nothing")
+	}
+
+	// Output:
+	// Read back 5
+	// Value is still 0
 }

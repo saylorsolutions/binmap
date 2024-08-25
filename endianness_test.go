@@ -3,8 +3,10 @@ package bin
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"io"
+	"log"
 	"testing"
 )
 
@@ -111,4 +113,29 @@ func TestMapEndian(t *testing.T) {
 		assert.NoError(t, m.Read(&buf, endian))
 		assert.Equal(t, uint16(0x2002), target)
 	})
+}
+
+func ExampleMapEndian() {
+	var (
+		buf  bytes.Buffer
+		data uint16 = 0x1001
+	)
+	m := MapEndian(OverrideBig, Int(&data))
+
+	// The specified byte order will be overridden for the Int mapper.
+	if err := m.Write(&buf, binary.LittleEndian); err != nil {
+		log.Fatalln("Error writing to buffer")
+	}
+	fmt.Printf("First byte should be 0x10: 0x%x\n", buf.Bytes()[0])
+
+	data = 0
+	// Reading works with the same override.
+	if err := m.Read(&buf, binary.LittleEndian); err != nil {
+		log.Fatalln("Error reading back from buffer")
+	}
+	fmt.Printf("Should have read 0x1001: 0x%x\n", data)
+
+	// Output:
+	// First byte should be 0x10: 0x10
+	// Should have read 0x1001: 0x1001
 }
