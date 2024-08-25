@@ -32,6 +32,11 @@ type mapper struct {
 	write WriteFunc
 }
 
+// CustomMapper will create a new [Mapper] with the given [ReadFunc] and [WriteFunc].
+func CustomMapper(read ReadFunc, write WriteFunc) Mapper {
+	return &mapper{read: read, write: write}
+}
+
 func (m *mapper) Read(r io.Reader, endian binary.ByteOrder) error {
 	if m.read != nil {
 		return m.read(r, endian)
