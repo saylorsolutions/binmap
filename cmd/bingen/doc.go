@@ -50,6 +50,7 @@ With that said, it should be clear that the format can tolerate whitespace, inde
 # Basic Mapping Types
 
 	id		This specifies the top level structure.
+	magic		A magic number with a multibyte constant.
 	i8		A signed, 8-bit integer field.
 	i16		A signed, 16-bit integer field.
 	i32		A signed, 32-bit integer field.
