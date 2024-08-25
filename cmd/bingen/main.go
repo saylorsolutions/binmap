@@ -17,6 +17,16 @@ var (
 		"hasStruct": func(field fieldMapping) bool {
 			return len(field.Struct.TypeName) > 0
 		},
+		"excludedField": func(field fieldMapping) bool {
+			switch MapType(field.BinType) {
+			case StructPad:
+				return true
+			case Magic:
+				return true
+			default:
+				return false
+			}
+		},
 	}).Parse(genTemplText))
 )
 

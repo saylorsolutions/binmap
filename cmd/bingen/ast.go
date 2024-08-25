@@ -2,6 +2,7 @@ package main
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -14,6 +15,7 @@ type MapType string
 const (
 	// ID is used to identify the top level structure.
 	ID          MapType = "id"
+	Magic       MapType = "magic"
 	I8          MapType = "i8"
 	I16         MapType = "i16"
 	I32         MapType = "i32"
@@ -120,6 +122,8 @@ func matchType(str string) MapType {
 		fallthrough
 	case StructPad:
 		fallthrough
+	case Magic:
+		fallthrough
 	case End:
 		return mt
 	default:
@@ -157,8 +161,6 @@ func goType(mt MapType) string {
 		return "uint32"
 	case BitFlag64:
 		return "uint64"
-	case BitFlagVal:
-		return ""
 	case F32:
 		return "float32"
 	case F64:
@@ -183,14 +185,18 @@ func goType(mt MapType) string {
 		fallthrough
 	case LenStr:
 		return "string"
-	case Array:
-		return ""
-	case Struct:
-		return ""
-	case StructField:
-		return ""
 	case StructPad:
 		return "[]byte"
+	case BitFlagVal:
+		fallthrough
+	case Array:
+		fallthrough
+	case Struct:
+		fallthrough
+	case StructField:
+		fallthrough
+	case Magic:
+		fallthrough
 	case End:
 		return ""
 	default:
@@ -200,6 +206,8 @@ func goType(mt MapType) string {
 
 func elemMapper(mt MapType) string {
 	switch mt {
+	case Magic:
+		return "bin.MagicNumber"
 	case I8:
 		fallthrough
 	case I16:
@@ -293,7 +301,20 @@ type fieldMapping struct {
 	LenField      string
 	FixedLen      uint64
 	ElementMapper string
+	MagicNumber   []byte
 	Struct        structMapping
+}
+
+func (m *fieldMapping) MagicNumberValues() string {
+	lenMagic := len(m.MagicNumber)
+	if lenMagic == 0 {
+		return ""
+	}
+	vals := make([]string, lenMagic)
+	for i := 0; i < lenMagic; i++ {
+		vals[i] = "0x" + strconv.FormatUint(uint64(m.MagicNumber[i]), 16)
+	}
+	return strings.Join(vals, ", ")
 }
 
 type bitFlags struct {

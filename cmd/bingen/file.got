@@ -13,8 +13,7 @@ import (
 
 type {{id .TypeName}} struct {
 {{- range $field := .Fields -}}
-	{{- if eq $field.BinType "pad" -}}
-	{{- else }}
+	{{- if not (excludedField $field) }}
 	{{id $field.Name}} {{$field.FieldType}}
 	{{- end -}}
 {{- end }}
@@ -53,7 +52,7 @@ func (t *{{id $type.TypeName}}) Is{{id .Field}}{{id .FlagID}}Set() bool {
 		{{- template "TypeMapping" .Struct -}}
 	{{- end -}}
 {{- end -}}
-
+{{"\n"}}{{/* Make sure there's a final newline */}}
 {{- end -}}
 
 {{- define "FieldMapping" -}}
@@ -115,6 +114,8 @@ func (t *{{id $type.TypeName}}) Is{{id .Field}}{{id .FlagID}}Set() bool {
 {{- template "MapStruct" . -}}
 {{- else if eq .BinType "pad" -}}
 {{- template "MapPadding" . -}}
+{{- else if eq .BinType "magic" -}}
+{{- template "MapMagic" . -}}
 {{- end -}}
 {{- end -}}
 
@@ -200,4 +201,8 @@ func (t *{{id $type.TypeName}}) Is{{id .Field}}{{id .FlagID}}Set() bool {
 
 {{- define "MapPadding" -}}
 	bin.FixedPadding(uint64({{.FixedLen}}))
+{{- end -}}
+
+{{- define "MapMagic" -}}
+	bin.MagicNumber([]byte({{.MagicNumberValues}}))
 {{- end -}}

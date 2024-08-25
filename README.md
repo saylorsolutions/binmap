@@ -24,11 +24,15 @@ There are other, *standardized* formats available that may be a better fit, depe
 
 ## Goals
 
-* I'd like to have an easier to use interface for reading/writing binary data.
-* I'd like to declare binary IO operations, execute them, and handle a single error at the end.
-* I'd like to be able to reuse binary IO operations, and even pass them into more complex pipelines.
-* I'd like to be able to declare dynamic behavior, like when the size of the next read is determined by the current field.
-* I'd like to declare a read loop based on a read field value, and pass the loop construct to a larger pipeline.
+- [x] I'd like to have an easier to use interface for reading/writing binary data.
+- [x] I'd like to declare binary IO operations, execute them, and handle a single error at the end.
+  * More complicated mappings can be simplified by generating mapping code with the [bingen command](https://pkg.go.dev/github.com/saylorsolutions/binmap/cmd/bingen) and mapping file.
+  * This command can be installed with `go install github.com/saylorsolutions/binmap/cmd/bingen@latest`
+- [x] I'd like to be able to reuse binary IO operations, and even pass them into more complex pipelines.
+- [ ] I'd like to be able to declare dynamic behavior, like when the size of the next read is determined by the current field.
+  - [x] This is implemented with sized byte slices, but not with more complex logic.
+- [x] I'd like to declare a read loop based on a read field value, and pass the loop construct to a larger pipeline.
+  * This "sequence of reads" behavior is provided by `MapSequence` and the `Mapper` interface.
 * ~~Struct tag field binding would be fantastic, but reflection is... fraught. I'll see how this goes, and I'll probably take some hints from how the stdlib is handling this.~~
   * There's too much possibility of dynamic or dependent logic with a lot of binary payloads, and the number of edge cases for implementing this is more than I want to deal with.
   * I'm pretty happy with the API for mapping definition so far, and I'd rather simplify that than get into reflection with struct field tags. I feel like it's much more understandable (and thus maintainable) code.
@@ -67,6 +71,9 @@ Keep in mind that type restrictions mostly come from what [binary.Read and binar
 * As already mentioned, the `Any` mapper can be used to add arbitrary mapping logic for any type you'd like to express.
   * An `Any` mapper just needs a `ReadFunc` and `WriteFunc`.
   * This mapper function doesn't require a target because it's intended to be flexible, and the assumption is that a target would be available in a closure context.
+* Support for "magic numbers," or byte sequences that are usually used as prefixes for binary data.
+  * We don't usually want to store this data, but we want to ensure that we're reading the expected file format.
+  * If the magic number doesn't match when using `MagicNumber`, then a specific error will be returned.
 
 ## Common patterns
 

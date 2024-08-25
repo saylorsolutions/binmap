@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -13,6 +14,8 @@ var (
 	ErrUnexpected    = errors.New("unexpected token")
 	ErrEOF           = errors.New("unexpected end of input")
 	ErrRefBeforeRead = errors.New("field referenced before reading")
+	ErrInvalidMagic  = errors.New("invalid magic number constant")
+	magicNumberRegex = regexp.MustCompile(`^[0-9a-fA-F]+$`)
 )
 
 func tokenIs(t *token, typ MapType, others ...MapType) bool {
@@ -161,6 +164,35 @@ func mapField(s *structMapping, field *fieldMapping, next iterator) error {
 			return refBeforeRead(lenField.tok)
 		}
 		field.LenField = lenField.tok
+	case tokenIs(mapping, Magic):
+		magicVal, ok := next()
+		if !ok {
+			return ErrEOF
+		}
+		if tokenNot(magicVal, Arg) {
+			return unexpectedToken(magicVal, Arg)
+		}
+		if !strings.HasPrefix(magicVal.tok, "0x") {
+			return fmt.Errorf("%w: expected leading '0x' for magic number constant '%s'", ErrInvalidMagic, magicVal.tok)
+		}
+		valueStr := strings.TrimPrefix(magicVal.tok, "0x")
+		if !magicNumberRegex.MatchString(valueStr) {
+			return fmt.Errorf("%w: magic number constant '%s' has invalid characters", ErrInvalidMagic, magicVal.tok)
+		}
+		valueRunes := []rune(valueStr)
+		if len(valueRunes)%2 != 0 {
+			return fmt.Errorf("%w: magic number constant '%s' must have an even number of hex digits", ErrInvalidMagic, magicVal.tok)
+		}
+		value := make([]byte, len(valueRunes)/2)
+		for i := 0; i < len(valueRunes); i += 2 {
+			str := string(valueRunes[i : i+2])
+			ival, err := strconv.ParseUint(str, 16, 8)
+			if err != nil {
+				return fmt.Errorf("%w: unable to parse magic number part '%s' as hex number: %v", ErrInvalidMagic, str, err)
+			}
+			value[i/2] = byte(ival & 0xff)
+		}
+		field.MagicNumber = value
 	case tokenIs(mapping, FixedData, StructPad):
 		fixedLen, ok := next()
 		if !ok {
