@@ -68,10 +68,14 @@ With that said, it should be clear that the format can tolerate whitespace, inde
 	lv		Variable length integer indicating length.
 	f32		A 32-bit floating-point field.
 	f64		A 64-bit floating-point field.
-	bf8		8-bit bitfield.
-	bf16		16-bit bitfield.
-	bf32		32-bit bitfield.
-	bf64		64-bit bitfield.
+	bf8		8-bit bitfield, using bitwise and for comparison.
+	bf16		16-bit bitfield, using bitwise and for comparison.
+	bf32		32-bit bitfield, using bitwise and for comparison.
+	bf64		64-bit bitfield, using bitwise and for comparison.
+	bfe8		8-bit bitfield, using equals for comparison instead of bitwise and.
+	bfe16		16-bit bitfield, using equals for comparison instead of bitwise and.
+	bfe32		32-bit bitfield, using equals for comparison instead of bitwise and.
+	bfe64		64-bit bitfield, using equals for comparison instead of bitwise and.
 	bf		A specific bitfield value, identified with a name and value.
 
 # Structured Mapping Types
