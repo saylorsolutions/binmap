@@ -71,10 +71,6 @@ func refBeforeRead(fieldName string) error {
 	return fmt.Errorf("%w: %s", ErrRefBeforeRead, fieldName)
 }
 
-func parseMappingString(mapping string) (*structMapping, error) {
-	return parseMapping(strings.NewReader(mapping))
-}
-
 func parseMapping(r io.Reader) (*structMapping, error) {
 	tokens, err := lex(r)
 	if err != nil {
