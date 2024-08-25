@@ -85,6 +85,8 @@ Fortunately, there are some commonly used patterns, library features, and guidel
 * Any given `Mapper` is not intended to live very long in memory. It's generally a single-use construct.
 * Mapping is not concurrency safe by default. This library makes no attempt to "lock/unlock" an object in any way before, during, or after (de)serialization, unless your mapper is wrapped with the `Lock` or `RWLock` helpers.
 * Panics that happen within a `Mapper`'s Read or Write methods will be propagated to the caller, unless it's wrapped with an `OnPanic` helper.
+* The `ByteOrder` of a `Mapper` will be based on the input endianness value, unless overridden by `MapEndian`.
+  * In this case, endianness can be based on the value of another field with `EndianInt`, or statically defined by one of the `Override*` `EndianIndicator`s.
 
 See the `example` directory for more details.
 
