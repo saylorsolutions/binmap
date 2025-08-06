@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/binary"
 	bin "github.com/saylorsolutions/binmap"
 	"io"
 	"log"
@@ -20,11 +19,11 @@ func (h *Header) mapper() bin.Mapper {
 		bin.MapEndian(bin.EndianInt(&h.Endianness, 1, 0), bin.Int(&h.DataSize)),
 		bin.Any(
 			// Not using LenBytes because it would duplicate the length in the output
-			func(r io.Reader, endian binary.ByteOrder) error {
+			func(r io.Reader, endian bin.ByteOrder) error {
 				sz := uint64(h.DataSize)
 				return bin.FixedBytes(&h.Data, sz).Read(r, endian)
 			},
-			func(w io.Writer, endian binary.ByteOrder) error {
+			func(w io.Writer, endian bin.ByteOrder) error {
 				sz := uint64(h.DataSize)
 				return bin.FixedBytes(&h.Data, sz).Write(w, endian)
 			},
@@ -41,7 +40,7 @@ func main() {
 	var buf bytes.Buffer
 
 	// The size will still be overridden to big endian, even though we're passing little endian byte order.
-	if err := h.mapper().Write(&buf, binary.LittleEndian); err != nil {
+	if err := h.mapper().Write(&buf, bin.LittleEndian); err != nil {
 		log.Fatalln("Failed to write header and data to buffer:", err)
 	}
 

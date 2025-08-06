@@ -2,7 +2,6 @@ package bin
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"io"
@@ -18,11 +17,11 @@ func TestEndianInt(t *testing.T) {
 	var field uint64
 	ind := EndianInt(&field, 1, 2)
 	field = 1
-	assert.Equal(t, binary.BigEndian, ind())
+	assert.Equal(t, BigEndian, ind())
 	field = 2
-	assert.Equal(t, binary.LittleEndian, ind())
+	assert.Equal(t, LittleEndian, ind())
 	field = 3
-	assert.Equal(t, binary.NativeEndian, ind())
+	assert.Equal(t, NativeEndian, ind())
 }
 
 func TestMapEndian(t *testing.T) {
@@ -31,48 +30,48 @@ func TestMapEndian(t *testing.T) {
 		buf    bytes.Buffer
 	)
 	assertBig := Any(
-		func(r io.Reader, endian binary.ByteOrder) error {
-			assert.Equal(t, binary.BigEndian, endian)
+		func(r io.Reader, endian ByteOrder) error {
+			assert.Equal(t, BigEndian, endian)
 			return Int(&target).Read(r, endian)
 		},
-		func(w io.Writer, endian binary.ByteOrder) error {
-			assert.Equal(t, binary.BigEndian, endian)
+		func(w io.Writer, endian ByteOrder) error {
+			assert.Equal(t, BigEndian, endian)
 			return Int(&target).Write(w, endian)
 		},
 	)
 	assertLittle := Any(
-		func(r io.Reader, endian binary.ByteOrder) error {
-			assert.Equal(t, binary.LittleEndian, endian)
+		func(r io.Reader, endian ByteOrder) error {
+			assert.Equal(t, LittleEndian, endian)
 			return Int(&target).Read(r, endian)
 		},
-		func(w io.Writer, endian binary.ByteOrder) error {
-			assert.Equal(t, binary.LittleEndian, endian)
+		func(w io.Writer, endian ByteOrder) error {
+			assert.Equal(t, LittleEndian, endian)
 			return Int(&target).Write(w, endian)
 		},
 	)
 	assertNative := Any(
-		func(r io.Reader, endian binary.ByteOrder) error {
-			assert.Equal(t, binary.NativeEndian, endian)
+		func(r io.Reader, endian ByteOrder) error {
+			assert.Equal(t, NativeEndian, endian)
 			return Int(&target).Read(r, endian)
 		},
-		func(w io.Writer, endian binary.ByteOrder) error {
-			assert.Equal(t, binary.NativeEndian, endian)
+		func(w io.Writer, endian ByteOrder) error {
+			assert.Equal(t, NativeEndian, endian)
 			return Int(&target).Write(w, endian)
 		},
 	)
 	assert.Panics(t, func() {
 		MapEndian(nil, assertBig)
 	})
-	assert.ErrorIs(t, MapEndian(OverrideNative, nil).Write(&buf, binary.BigEndian), ErrNilReadWrite)
+	assert.ErrorIs(t, MapEndian(OverrideNative, nil).Write(&buf, BigEndian), ErrNilReadWrite)
 
 	t.Run("Override Big", func(t *testing.T) {
 		buf.Reset()
 		target = 0x0110
 		m := MapEndian(OverrideBig, assertBig)
-		assert.NoError(t, m.Write(&buf, binary.LittleEndian))
+		assert.NoError(t, m.Write(&buf, LittleEndian))
 		assert.Equal(t, uint16(0x0110), target)
 		target = 0
-		assert.NoError(t, m.Read(&buf, binary.LittleEndian))
+		assert.NoError(t, m.Read(&buf, LittleEndian))
 		assert.Equal(t, uint16(0x0110), target)
 	})
 
@@ -80,10 +79,10 @@ func TestMapEndian(t *testing.T) {
 		buf.Reset()
 		target = 0x1001
 		m := MapEndian(OverrideLittle, assertLittle)
-		assert.NoError(t, m.Write(&buf, binary.BigEndian))
+		assert.NoError(t, m.Write(&buf, BigEndian))
 		assert.Equal(t, uint16(0x1001), target)
 		target = 0
-		assert.NoError(t, m.Read(&buf, binary.BigEndian))
+		assert.NoError(t, m.Read(&buf, BigEndian))
 		assert.Equal(t, uint16(0x1001), target)
 	})
 
@@ -92,16 +91,16 @@ func TestMapEndian(t *testing.T) {
 		target = 0x2002
 		var (
 			testBytes = make([]byte, 2)
-			endian    binary.ByteOrder
+			endian    ByteOrder
 		)
-		binary.NativeEndian.PutUint16(testBytes, target)
+		NativeEndian.PutUint16(testBytes, target)
 		switch testBytes[0] {
 		case 0x20:
 			// Native is big endian, set input endian to little
-			endian = binary.LittleEndian
+			endian = LittleEndian
 		case 0x02:
 			// Native is little endian, set input endian to little
-			endian = binary.BigEndian
+			endian = BigEndian
 		default:
 			t.Fatal("Unable to determine native endianness")
 		}
@@ -123,14 +122,14 @@ func ExampleMapEndian() {
 	m := MapEndian(OverrideBig, Int(&data))
 
 	// The specified byte order will be overridden for the Int mapper.
-	if err := m.Write(&buf, binary.LittleEndian); err != nil {
+	if err := m.Write(&buf, LittleEndian); err != nil {
 		log.Fatalln("Error writing to buffer")
 	}
 	fmt.Printf("First byte should be 0x10: 0x%x\n", buf.Bytes()[0])
 
 	data = 0
 	// Reading works with the same override.
-	if err := m.Read(&buf, binary.LittleEndian); err != nil {
+	if err := m.Read(&buf, LittleEndian); err != nil {
 		log.Fatalln("Error reading back from buffer")
 	}
 	fmt.Printf("Should have read 0x1001: 0x%x\n", data)

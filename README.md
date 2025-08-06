@@ -61,7 +61,7 @@ Keep in mind that type restrictions mostly come from what [binary.Read and binar
 * Bytes with `Byte`, and byte slices with `FixedBytes` and `LenBytes`.
 * Complex 64/128 with `Complex`.
 * Signed and unsigned varints with `Varint`/`Uvarint`.
-* General slice mappers are provided with `Slice`, `LenSlice`, and `DynamicSlice`.
+* General slice mappers are provided with `Slice`, `LenSlice`, `FixedSlice`, and `DynamicSlice`.
 * Size types with `Size`, which are restricted to any known-size, unsigned integer.
 * Strings, both with `FixedString` for fixed-width string fields, and null-terminated strings with `NullTermString`.
   * Plain strings are always encoded as UTF-8 strings.
@@ -73,7 +73,7 @@ Keep in mind that type restrictions mostly come from what [binary.Read and binar
   * This mapper function doesn't require a target because it's intended to be flexible, and the assumption is that a target would be available in a closure context.
 * Support for "magic numbers," or byte sequences that are usually used as prefixes for binary data.
   * We don't usually want to store this data, but we want to ensure that we're reading the expected file format.
-  * If the magic number doesn't match when using `MagicNumber`, then a specific error will be returned.
+  * If the magic number doesn't match when using `MagicNumber`, then `ErrMagicMismatch` will be returned.
 
 ## Common patterns
 
@@ -96,7 +96,6 @@ Expressing a mapper method that creates a consistent `Mapper` for your data in a
 
 ```golang
 import (
-	"encoding/binary"
 	bin "github.com/saylorsolutions/binmap"
 	"io"
 )
@@ -110,11 +109,11 @@ func (u *User) mapper() bin.Mapper {
 }
 
 func (u *User) Read(r io.Reader) error {
-	return u.mapper().Read(r, binary.BigEndian)
+	return u.mapper().Read(r, bin.BigEndian)
 }
 
 func (u *User) Write(w io.Writer) error {
-	return u.mapper().Write(w, binary.BigEndian)
+	return u.mapper().Write(w, bin.BigEndian)
 }
 ```
 
@@ -125,7 +124,6 @@ This provides a tremendous level of flexibility, since the result of `MapSequenc
 
 ```golang
 import (
-	"encoding/binary"
 	bin "github.com/saylorsolutions/binmap"
 	"io"
 )
@@ -145,11 +143,11 @@ func (u *User) mapper() bin.Mapper {
 }
 
 func (u *User) Read(r io.Reader) error {
-	return u.mapper().Read(r, binary.BigEndian)
+	return u.mapper().Read(r, bin.BigEndian)
 }
 
 func (u *User) Write(w io.Writer) error {
-	return u.mapper().Write(w, binary.BigEndian)
+	return u.mapper().Write(w, bin.BigEndian)
 }
 ```
 
@@ -165,7 +163,6 @@ Types included in your top-level structure can themselves have a mapper method t
 package main
 
 import (
-	"encoding/binary"
 	bin "github.com/saylorsolutions/binmap"
 	"io"
 )
@@ -202,11 +199,11 @@ func (u *User) mapper() bin.Mapper {
 }
 
 func (u *User) Read(r io.Reader) error {
-	return u.mapper().Read(r, binary.BigEndian)
+	return u.mapper().Read(r, bin.BigEndian)
 }
 
 func (u *User) Write(w io.Writer) error {
-	return u.mapper().Write(w, binary.BigEndian)
+	return u.mapper().Write(w, bin.BigEndian)
 }
 ```
 
@@ -274,7 +271,6 @@ This can be handled pretty easily with a little forethought.
 
 ```golang
 import (
-	"encoding/binary"
 	"errors"
 	bin "github.com/saylorsolutions/binmap"
 	"io"
@@ -301,7 +297,7 @@ func (u *User) mapperV2() bin.Mapper {
 
 func (u *User) mapper() bin.Mapper {
 	return bin.Any(
-		func(r io.Reader, endian binary.ByteOrder) error {
+		func(r io.Reader, endian ByteOrder) error {
 			var v version
 			if err := bin.Byte(&v).Read(r, endian); err != nil {
 				return err
@@ -315,7 +311,7 @@ func (u *User) mapper() bin.Mapper {
 				return errors.New("unknown version")
 			}
 		},
-		func(w io.Writer, endian binary.ByteOrder) error {
+		func(w io.Writer, endian bin.ByteOrder) error {
 			var v = v2
 			return bin.MapSequence(
 				bin.Byte(&v),
@@ -326,10 +322,10 @@ func (u *User) mapper() bin.Mapper {
 }
 
 func (u *User) Read(r io.Reader) error {
-	return u.mapper().Read(r, binary.BigEndian)
+	return u.mapper().Read(r, bin.BigEndian)
 }
 
 func (u *User) Write(w io.Writer) error {
-	return u.mapper().Write(w, binary.BigEndian)
+	return u.mapper().Write(w, bin.BigEndian)
 }
 ```

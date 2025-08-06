@@ -26,7 +26,6 @@ func TestMagicNumberOutput(t *testing.T) {
 package mapping
 
 import (
-	"encoding/binary"
 	"github.com/saylorsolutions/binmap"
 	"io"
 )
@@ -46,11 +45,11 @@ func MagicNumberMapper(t *MagicNumber) bin.Mapper {
 	return t.mapper()
 }
 
-func (t *MagicNumber) Read(r io.Reader, endian binary.ByteOrder) error {
+func (t *MagicNumber) Read(r io.Reader, endian bin.ByteOrder) error {
 	return t.mapper().Read(r, endian)
 }
 
-func (t *MagicNumber) Write(w io.Writer, endian binary.ByteOrder) error {
+func (t *MagicNumber) Write(w io.Writer, endian bin.ByteOrder) error {
 	return t.mapper().Write(w, endian)
 }
 `

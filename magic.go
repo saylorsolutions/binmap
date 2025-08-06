@@ -1,7 +1,6 @@
 package bin
 
 import (
-	"encoding/binary"
 	"errors"
 	"io"
 )
@@ -16,7 +15,7 @@ func MagicNumber(num []byte) Mapper {
 	}
 	sz := uint64(len(num))
 	return &mapper{
-		read: func(r io.Reader, endian binary.ByteOrder) error {
+		read: func(r io.Reader, endian ByteOrder) error {
 			magic := make([]byte, len(num))
 			if err := FixedBytes(&magic, sz).Read(r, endian); err != nil {
 				return err
@@ -28,7 +27,7 @@ func MagicNumber(num []byte) Mapper {
 			}
 			return nil
 		},
-		write: func(w io.Writer, endian binary.ByteOrder) error {
+		write: func(w io.Writer, endian ByteOrder) error {
 			return FixedBytes(&num, sz).Write(w, endian)
 		},
 	}

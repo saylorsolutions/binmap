@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/binary"
 	"errors"
 	bin "github.com/saylorsolutions/binmap"
 	"io"
@@ -28,7 +27,7 @@ func (u *User) mapperV2() bin.Mapper {
 
 func (u *User) mapper() bin.Mapper {
 	return bin.Any(
-		func(r io.Reader, endian binary.ByteOrder) error {
+		func(r io.Reader, endian bin.ByteOrder) error {
 			var v version
 			if err := bin.Byte(&v).Read(r, endian); err != nil {
 				return err
@@ -42,7 +41,7 @@ func (u *User) mapper() bin.Mapper {
 				return errors.New("unknown version")
 			}
 		},
-		func(w io.Writer, endian binary.ByteOrder) error {
+		func(w io.Writer, endian bin.ByteOrder) error {
 			var v = v2
 			return bin.MapSequence(
 				bin.Byte(&v),
@@ -53,9 +52,9 @@ func (u *User) mapper() bin.Mapper {
 }
 
 func (u *User) Read(r io.Reader) error {
-	return u.mapper().Read(r, binary.BigEndian)
+	return u.mapper().Read(r, bin.BigEndian)
 }
 
 func (u *User) Write(w io.Writer) error {
-	return u.mapper().Write(w, binary.BigEndian)
+	return u.mapper().Write(w, bin.BigEndian)
 }

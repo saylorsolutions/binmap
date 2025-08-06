@@ -2,7 +2,6 @@ package bin
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"log"
@@ -12,14 +11,14 @@ import (
 func TestNilConditional(t *testing.T) {
 	var buf bytes.Buffer
 	m := Conditional(func() bool { return true }, nil)
-	assert.ErrorIs(t, m.Read(&buf, binary.BigEndian), ErrNilReadWrite)
-	assert.ErrorIs(t, m.Write(&buf, binary.BigEndian), ErrNilReadWrite)
+	assert.ErrorIs(t, m.Read(&buf, BigEndian), ErrNilReadWrite)
+	assert.ErrorIs(t, m.Write(&buf, BigEndian), ErrNilReadWrite)
 }
 
 func TestConditional(t *testing.T) {
 	var (
 		buf    bytes.Buffer
-		endian = binary.LittleEndian
+		endian = LittleEndian
 		ival   uint64
 		iother uint64
 	)
@@ -57,7 +56,7 @@ func ExampleConditional() {
 		outputInt        = true
 		val       uint16 = 5
 		buf       bytes.Buffer
-		endian    = binary.BigEndian
+		endian    = BigEndian
 	)
 	m := Conditional(
 		func() bool {

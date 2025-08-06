@@ -2,7 +2,6 @@ package bin
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -12,7 +11,7 @@ func TestMagicNumber(t *testing.T) {
 	var (
 		magicNum = []byte{'a', 'b', 'c'}
 		buf      bytes.Buffer
-		endian   = binary.BigEndian
+		endian   = BigEndian
 	)
 
 	m := MagicNumber(magicNum)

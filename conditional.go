@@ -1,7 +1,6 @@
 package bin
 
 import (
-	"encoding/binary"
 	"io"
 )
 
@@ -15,7 +14,7 @@ func Conditional(condition func() bool, trueMapper Mapper, falseMapper ...Mapper
 		return nilMapping
 	}
 	return &mapper{
-		read: func(r io.Reader, endian binary.ByteOrder) error {
+		read: func(r io.Reader, endian ByteOrder) error {
 			if condition() {
 				return trueMapper.Read(r, endian)
 			} else if len(falseMapper) > 0 && falseMapper[0] != nil {
@@ -23,7 +22,7 @@ func Conditional(condition func() bool, trueMapper Mapper, falseMapper ...Mapper
 			}
 			return nil
 		},
-		write: func(w io.Writer, endian binary.ByteOrder) error {
+		write: func(w io.Writer, endian ByteOrder) error {
 			if condition() {
 				return trueMapper.Write(w, endian)
 			} else if len(falseMapper) > 0 && falseMapper[0] != nil {

@@ -5,9 +5,18 @@ import (
 	"io"
 )
 
+// ByteOrder is an alias of binary.ByteOrder provided for reference consistency.
+type ByteOrder = binary.ByteOrder
+
+var (
+	BigEndian    ByteOrder = binary.BigEndian    // BigEndian provided for reference consistency.
+	LittleEndian ByteOrder = binary.LittleEndian // LittleEndian provided for reference consistency.
+	NativeEndian ByteOrder = binary.NativeEndian // NativeEndian provided for reference consistency.
+)
+
 // EndianIndicator is a function that indicates what byte order should be used with [MapEndian].
 // Such a function will be called at the time of reading or writing, so it can make decisions as a result of previous reads.
-type EndianIndicator func() binary.ByteOrder
+type EndianIndicator func() ByteOrder
 
 // MapEndian will return a [Mapper] that overrides the endian value used with the result of the given [EndianIndicator].
 func MapEndian(indicator EndianIndicator, wrapped Mapper) Mapper {
@@ -18,11 +27,11 @@ func MapEndian(indicator EndianIndicator, wrapped Mapper) Mapper {
 		return nilMapping
 	}
 	return &mapper{
-		read: func(r io.Reader, endian binary.ByteOrder) error {
+		read: func(r io.Reader, endian ByteOrder) error {
 			endian = indicator()
 			return wrapped.Read(r, endian)
 		},
-		write: func(w io.Writer, endian binary.ByteOrder) error {
+		write: func(w io.Writer, endian ByteOrder) error {
 			endian = indicator()
 			return wrapped.Write(w, endian)
 		},
@@ -31,35 +40,35 @@ func MapEndian(indicator EndianIndicator, wrapped Mapper) Mapper {
 
 // EndianInt interprets a previously read [AnyInt] typed field as an indicator of desired endianness.
 //
-//   - The bigVal value indicates that [binary.BigEndian] should be used.
-//   - The littleVal value indicates that [binary.LittleEndian] should be used.
-//   - If neither value matches the value of the field, then [binary.NativeEndian] is returned.
+//   - The bigVal value indicates that [bin.BigEndian] should be used.
+//   - The littleVal value indicates that [bin.LittleEndian] should be used.
+//   - If neither value matches the value of the field, then [bin.NativeEndian] is returned.
 //
 // The produced [EndianIndicator] will panic if the field pointer is nil.
 func EndianInt[T AnyInt](field *T, bigVal T, littleVal T) EndianIndicator {
 	if field == nil {
 		panic("field is nil")
 	}
-	return func() binary.ByteOrder {
+	return func() ByteOrder {
 		switch *field {
 		case bigVal:
-			return binary.BigEndian
+			return BigEndian
 		case littleVal:
-			return binary.LittleEndian
+			return LittleEndian
 		default:
-			return binary.NativeEndian
+			return NativeEndian
 		}
 	}
 }
 
-func OverrideBig() binary.ByteOrder {
-	return binary.BigEndian
+func OverrideBig() ByteOrder {
+	return BigEndian
 }
 
-func OverrideLittle() binary.ByteOrder {
-	return binary.LittleEndian
+func OverrideLittle() ByteOrder {
+	return LittleEndian
 }
 
-func OverrideNative() binary.ByteOrder {
-	return binary.NativeEndian
+func OverrideNative() ByteOrder {
+	return NativeEndian
 }

@@ -2,7 +2,6 @@ package bin
 
 import (
 	"bytes"
-	"encoding/binary"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -17,7 +16,7 @@ func TestMap(t *testing.T) {
 
 	m := Map(&data, Int[uint8], Bool)
 	var buf bytes.Buffer
-	assert.NoError(t, m.Write(&buf, binary.BigEndian))
+	assert.NoError(t, m.Write(&buf, BigEndian))
 
 	out := buf.Bytes()
 	buf.Reset()
@@ -25,7 +24,7 @@ func TestMap(t *testing.T) {
 
 	data = map[uint8]bool{}
 	buf.Write(out)
-	assert.NoError(t, m.Read(&buf, binary.BigEndian))
+	assert.NoError(t, m.Read(&buf, BigEndian))
 	assert.Len(t, data, 4)
 	assert.Equal(t, data[0], false)
 	assert.Equal(t, data[1], true)

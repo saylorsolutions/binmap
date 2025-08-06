@@ -16,7 +16,7 @@ func FixedString(s *string, length int) Mapper {
 		return nilMapping
 	}
 	return &mapper{
-		read: func(r io.Reader, endian binary.ByteOrder) error {
+		read: func(r io.Reader, endian ByteOrder) error {
 			buf := make([]byte, length)
 			if err := binary.Read(r, endian, buf); err != nil {
 				return err
@@ -27,7 +27,7 @@ func FixedString(s *string, length int) Mapper {
 			*s = string(buf)
 			return nil
 		},
-		write: func(w io.Writer, endian binary.ByteOrder) error {
+		write: func(w io.Writer, endian ByteOrder) error {
 			bs := make([]byte, length)
 			copy(bs, *s)
 			return binary.Write(w, endian, bs)
@@ -42,7 +42,7 @@ func NullTermString(s *string) Mapper {
 		return nilMapping
 	}
 	return &mapper{
-		read: func(r io.Reader, endian binary.ByteOrder) error {
+		read: func(r io.Reader, endian ByteOrder) error {
 			var (
 				buf bytes.Buffer
 				ubr = &unbufferedByteReader{reader: r}
@@ -61,7 +61,7 @@ func NullTermString(s *string) Mapper {
 				}
 			}
 		},
-		write: func(w io.Writer, endian binary.ByteOrder) error {
+		write: func(w io.Writer, endian ByteOrder) error {
 			bs := append([]byte(*s), 0)
 			return binary.Write(w, endian, bs)
 		},
@@ -74,7 +74,7 @@ func Uni16NullTermString(s *string) Mapper {
 		return nilMapping
 	}
 	return &mapper{
-		read: func(r io.Reader, endian binary.ByteOrder) error {
+		read: func(r io.Reader, endian ByteOrder) error {
 			var (
 				buf   bytes.Buffer
 				wchar uint16
@@ -93,7 +93,7 @@ func Uni16NullTermString(s *string) Mapper {
 				buf.Write(u8s[:n])
 			}
 		},
-		write: func(w io.Writer, endian binary.ByteOrder) error {
+		write: func(w io.Writer, endian ByteOrder) error {
 			var u16str []uint16
 			for _, ru := range []rune(*s) {
 				u16str = utf16.AppendRune(u16str, ru)
@@ -113,7 +113,7 @@ func Uni16FixedString(s *string, wcharlen int) Mapper {
 		return nilMapping
 	}
 	return &mapper{
-		read: func(r io.Reader, endian binary.ByteOrder) error {
+		read: func(r io.Reader, endian ByteOrder) error {
 			var (
 				buf = make([]uint16, wcharlen)
 			)
@@ -126,7 +126,7 @@ func Uni16FixedString(s *string, wcharlen int) Mapper {
 			})
 			return nil
 		},
-		write: func(w io.Writer, endian binary.ByteOrder) error {
+		write: func(w io.Writer, endian ByteOrder) error {
 			var buf []uint16
 			runes := []rune(*s)
 			for i := 0; i < wcharlen && i < len(runes); i++ {

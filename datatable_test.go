@@ -2,7 +2,6 @@ package bin
 
 import (
 	"bytes"
-	"encoding/binary"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -20,7 +19,7 @@ func TestDataTable(t *testing.T) {
 		MapField(&a, Byte),
 		MapField(&b, Byte),
 	)
-	assert.NoError(t, m.Write(&buf, binary.BigEndian))
+	assert.NoError(t, m.Write(&buf, BigEndian))
 
 	written := buf.Bytes()
 	expected := append([]byte{0, 0, 0, 5}, "Hi, there!"...)
@@ -30,6 +29,6 @@ func TestDataTable(t *testing.T) {
 	buf.Write(written)
 	a, b = nil, nil
 
-	assert.NoError(t, m.Read(&buf, binary.BigEndian))
+	assert.NoError(t, m.Read(&buf, BigEndian))
 	assert.Equal(t, "H,teei hr!", string(append(a, b...)))
 }

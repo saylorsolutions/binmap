@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/binary"
 	bin "github.com/saylorsolutions/binmap"
 	"io"
 )
@@ -38,9 +37,9 @@ func (u *User) mapper() bin.Mapper {
 }
 
 func (u *User) Read(r io.Reader) error {
-	return u.mapper().Read(r, binary.BigEndian)
+	return u.mapper().Read(r, bin.BigEndian)
 }
 
 func (u *User) Write(w io.Writer) error {
-	return u.mapper().Write(w, binary.BigEndian)
+	return u.mapper().Write(w, bin.BigEndian)
 }

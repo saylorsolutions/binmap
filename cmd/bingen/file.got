@@ -2,7 +2,6 @@
 package {{.Package}}
 
 import (
-	"encoding/binary"
 	"github.com/saylorsolutions/binmap"
 	"io"
 )
@@ -31,11 +30,11 @@ func {{id .TypeName}}Mapper(t *{{id .TypeName}}) bin.Mapper {
 	return t.mapper()
 }
 
-func (t *{{id .TypeName}}) Read(r io.Reader, endian binary.ByteOrder) error {
+func (t *{{id .TypeName}}) Read(r io.Reader, endian bin.ByteOrder) error {
 	return t.mapper().Read(r, endian)
 }
 
-func (t *{{id .TypeName}}) Write(w io.Writer, endian binary.ByteOrder) error {
+func (t *{{id .TypeName}}) Write(w io.Writer, endian bin.ByteOrder) error {
 	return t.mapper().Write(w, endian)
 }
 
