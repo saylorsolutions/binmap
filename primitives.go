@@ -36,7 +36,7 @@ func Bool(b *bool) Mapper {
 }
 
 type AnyInt interface {
-	int8 | int16 | int32 | int64 | uint8 | uint16 | uint32 | uint64
+	~int8 | ~int16 | ~int32 | ~int64 | ~uint8 | ~uint16 | ~uint32 | ~uint64
 }
 
 // Int will map any integer, excluding int.
@@ -55,7 +55,7 @@ func Int[T AnyInt](i *T) Mapper {
 }
 
 type AnyFloat interface {
-	float32 | float64
+	~float32 | ~float64
 }
 
 // Float will map any floating point value.
@@ -74,7 +74,7 @@ func Float[T AnyFloat](f *T) Mapper {
 }
 
 type AnyComplex interface {
-	complex64 | complex128
+	~complex64 | ~complex128
 }
 
 // Complex will map a complex64/128 number.

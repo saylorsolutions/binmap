@@ -6,7 +6,7 @@ import (
 )
 
 type SizeType interface {
-	uint8 | uint16 | uint32 | uint64
+	~uint8 | ~uint16 | ~uint32 | ~uint64
 }
 
 // Size maps any value that can reasonably be used to express a size.
@@ -25,14 +25,13 @@ func Size[S SizeType](size *S) Mapper {
 }
 
 // FixedBytes maps a byte slice of a known length.
-func FixedBytes[S SizeType](buf *[]byte, length S) Mapper {
+func FixedBytes(buf *[]byte, length uint64) Mapper {
 	if buf == nil {
 		return nilMapping
 	}
-	sz := uint64(length)
 	return &mapper{
 		read: func(r io.Reader, endian binary.ByteOrder) error {
-			_buf := make([]byte, sz)
+			_buf := make([]byte, length)
 			if err := binary.Read(r, endian, _buf); err != nil {
 				return err
 			}
@@ -40,7 +39,7 @@ func FixedBytes[S SizeType](buf *[]byte, length S) Mapper {
 			return nil
 		},
 		write: func(w io.Writer, endian binary.ByteOrder) error {
-			out := make([]byte, sz)
+			out := make([]byte, length)
 			copy(out, *buf)
 			return binary.Write(w, endian, out)
 		},
@@ -62,13 +61,15 @@ func LenBytes[S SizeType](buf *[]byte, length *S) Mapper {
 			if err := Size(length).Read(r, endian); err != nil {
 				return err
 			}
-			return FixedBytes(buf, *length).Read(r, endian)
+			sz := uint64(*length)
+			return FixedBytes(buf, sz).Read(r, endian)
 		},
 		write: func(w io.Writer, endian binary.ByteOrder) error {
 			if err := Size(length).Write(w, endian); err != nil {
 				return err
 			}
-			return FixedBytes(buf, *length).Write(w, endian)
+			sz := uint64(*length)
+			return FixedBytes(buf, sz).Write(w, endian)
 		},
 	}
 }
@@ -186,7 +187,7 @@ func Remaining[E any](target *[]E, mapVal func(*E) Mapper) Mapper {
 }
 
 // FixedPadding writes a padding amount of zero bytes, and reads through a fixed amount of bytes assumed to be padding.
-func FixedPadding[S SizeType](length S) Mapper {
+func FixedPadding(length uint64) Mapper {
 	return &mapper{
 		read: func(r io.Reader, endian binary.ByteOrder) error {
 			var padding []byte

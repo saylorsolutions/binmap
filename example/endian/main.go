@@ -21,12 +21,12 @@ func (h *Header) mapper() bin.Mapper {
 		bin.Any(
 			// Not using LenBytes because it would duplicate the length in the output
 			func(r io.Reader, endian binary.ByteOrder) error {
-				l := h.DataSize
-				return bin.FixedBytes(&h.Data, l).Read(r, endian)
+				sz := uint64(h.DataSize)
+				return bin.FixedBytes(&h.Data, sz).Read(r, endian)
 			},
 			func(w io.Writer, endian binary.ByteOrder) error {
-				l := h.DataSize
-				return bin.FixedBytes(&h.Data, l).Write(w, endian)
+				sz := uint64(h.DataSize)
+				return bin.FixedBytes(&h.Data, sz).Write(w, endian)
 			},
 		),
 	)

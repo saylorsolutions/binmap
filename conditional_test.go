@@ -64,7 +64,7 @@ func ExampleConditional() {
 			return outputInt
 		},
 		Int(&val),
-		FixedPadding[uint64](2),
+		FixedPadding(2),
 	)
 
 	// Effective read/write
