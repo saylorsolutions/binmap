@@ -2,6 +2,7 @@ package main
 
 import (
 	_ "embed"
+	"github.com/saylorsolutions/binmap/foundation/cli"
 	"log"
 	"os"
 	"path/filepath"
@@ -31,9 +32,10 @@ var (
 )
 
 func main() {
+	out := cli.NewPrinter()
 	args := os.Args[1:]
 	if len(args) < 2 {
-		log.Fatalln("Not enough args")
+		out.Fatalln("Not enough args")
 	}
 	procFilePath, outDir := args[0], args[1]
 	if err := run(procFilePath, outDir); err != nil {
