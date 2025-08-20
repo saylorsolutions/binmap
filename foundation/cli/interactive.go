@@ -16,16 +16,16 @@ const (
 )
 
 var (
-	InteractiveFlag         = "-i"                  // InteractiveFlag specifies the flag that the user should pass to trigger [CommandSet.RespondInteractive].
+	InteractiveFlag         = "-i"                  // InteractiveFlag specifies the flag that the user should pass to trigger [Command.RespondInteractive].
 	InteractiveQuitCommands = []string{"quit", "x"} // InteractiveQuitCommands is a slice of strings that should escape from interactive mode.
 )
 
-// RespondInteractive will launch an interactive "shell" version of the [CommandSet] if the [InteractiveFlag] is the first argument, indicating that the user is requesting interactive mode.
+// RespondInteractive will launch an interactive "shell" version of the [Command] if the [InteractiveFlag] is the first argument, indicating that the user is requesting interactive mode.
 // This allows printing usage and calling sub-commands.
 // Returns false if interactive mode was not requested by the user.
 //
 // This loop may be interrupted with one of the [InteractiveQuitCommands].
-func (s *CommandSet) RespondInteractive() bool {
+func (c *Command) RespondInteractive() bool {
 	args := os.Args[1:]
 	if len(args) == 0 {
 		return false
@@ -34,13 +34,13 @@ func (s *CommandSet) RespondInteractive() bool {
 		return false
 	}
 
-	if err := s.interactiveLoop(os.Args[0]); err != nil {
-		s.printer.Println("Error running command interactively:", err)
+	if err := c.interactiveLoop(os.Args[0]); err != nil {
+		c.printer.Println("Error running command interactively:", err)
 	}
 	return true
 }
 
-func (s *CommandSet) interactiveLoop(command string) error {
+func (c *Command) interactiveLoop(command string) error {
 	var (
 		commandStack [][]string
 	)
@@ -51,16 +51,16 @@ func (s *CommandSet) interactiveLoop(command string) error {
 		return commandStack[len(commandStack)-1]
 	}
 	scanner := bufio.NewScanner(os.Stdin)
-	p := s.printer
+	p := c.printer
 	p.Printf(`Running '%s' interactively. Enter %s to exit.
 Use the %s command with one or more sub-commands to push them to the execution stack, and %s to pop and return.
 `, command, strings.Join(InteractiveQuitCommands, " or "),
 		UseCommand, BackCommand)
 	for {
 		if len(commandStack) > 0 {
-			p.Printf("%s %s> ", s.parent, strings.Join(prefixCommands(), " "))
+			p.Printf("%s %s> ", c.parent, strings.Join(prefixCommands(), " "))
 		} else {
-			p.Printf("%s> ", s.parent)
+			p.Printf("%s> ", c.parent)
 		}
 		switch {
 		case scanner.Scan():

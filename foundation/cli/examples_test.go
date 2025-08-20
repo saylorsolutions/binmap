@@ -2,14 +2,13 @@ package cli
 
 import (
 	"fmt"
-	flag "github.com/spf13/pflag"
 	"os"
 )
 
-func ExampleNewCommandSet() {
-	// The NewCommandSet function is called to get a top level command set.
+func ExampleTopLevelCommandWithName() {
+	// The TopLevelCommand function is called to get a top level command set.
 	// The string used should be the name used to invoke your CLI, but it could also be os.Args[0].
-	tlc := NewCommandSet("my-cli")
+	tlc := TopLevelCommandWithName("my-cli")
 
 	// Sub-commands can be added easily.
 	sub := tlc.AddCommand("sub-command", "Shows an example of a sub-command")
@@ -17,15 +16,15 @@ func ExampleNewCommandSet() {
 	// The flags for a Command or CommandSet can be accessed to set up whatever flags are needed.
 	sub.Flags().Bool("do-something", false, "Makes the sub-command do something")
 
-	// Usage hints can be set with the Usage method. No need to mess with the usage function in flags.
+	// Usage hints can be set with the AddUsageExample method. No need to mess with the usage function in flags.
 	// Parent command references will automatically be prepended to this string.
 	// In this case the actual usage string will be 'my-cli sub-command [FLAGS]'.
-	sub.Usage("sub-command [FLAGS]")
+	sub.AddUsageExample("[FLAGS]")
 	// Done for the example test.
 	sub.Printer().Redirect(os.Stdout)
 
 	// Functionality is defined with the Does method.
-	sub.Does(func(flags *flag.FlagSet, _ *Printer) error {
+	sub.Does(func(flags *Flags, _ *Printer) error {
 		// Flags are already parsed by the time this function is executed.
 		if MustGet(flags.GetBool("do-something")) {
 			// Using fmt for the example, but the Printer should be used to communicate with the user.
@@ -49,10 +48,9 @@ func ExampleNewCommandSet() {
 	//
 	// Shows an example of a sub-command
 	//
-	// USAGE:
-	// my-cli sub-command [FLAGS]
+	// USAGE: my-cli sub-command [FLAGS]
 	//
-	// FLAGS
+	// FLAGS:
 	//       --do-something   Makes the sub-command do something
 	//   -h, --help           Prints this usage information
 }

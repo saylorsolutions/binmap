@@ -1,61 +1,102 @@
 package cli
 
 import (
-	"errors"
 	"fmt"
 	flag "github.com/spf13/pflag"
 	"os"
-	"regexp"
-	"slices"
+	"path/filepath"
 	"strings"
 )
 
-var (
-	ErrUnknownCommand = errors.New("unknown command")
-	HelpPatterns      = []string{"--help", "-h"} // HelpPatterns is a slice of flags that should trigger the output of usage information with the top-level [CommandSet].
+type Flags struct {
+	*flag.FlagSet
+}
 
-	keyCleansePattern = regexp.MustCompile(`\s`)
-)
+func (f *Flags) setHelpFlag() {
+	if len(ShortHelpFlag) == 0 && len(LongHelpFlag) == 0 {
+		LongHelpFlag = "help"
+		ShortHelpFlag = "h"
+	}
+	desc := "Prints this usage information"
+	switch {
+	case len(LongHelpFlag) == 0:
+		f.BoolP("help", ShortHelpFlag, false, desc)
+	case len(ShortHelpFlag) == 0:
+		f.Bool(LongHelpFlag, false, desc)
+	default:
+		f.BoolP(LongHelpFlag, ShortHelpFlag, false, desc)
+	}
+}
+
+func (f *Flags) usageRequested() bool {
+	if val, err := f.GetBool(LongHelpFlag); err == nil && val {
+		return true
+	}
+	if val, err := f.GetBool(ShortHelpFlag); err == nil && val {
+		return true
+	}
+	return false
+}
 
 // CommandFunc is a function that may be executed within a [Command].
-type CommandFunc = func(flags *flag.FlagSet, out *Printer) error
+type CommandFunc = func(flags *Flags, out *Printer) error
 
 // Command is an executable function in a CLI.
-// It should be linked to a [CommandSet] to establish a tree of commands available to the user.
+// It should be linked to a [Command] to establish a tree of commands available to the user.
 type Command struct {
-	CommandSet
-	flags      *flag.FlagSet
-	exec       CommandFunc
-	key        string
-	parent     string
-	shortUsage string
-	printer    *Printer
-	aliases    []string
+	subcommands
+	flags         *Flags
+	exec          CommandFunc
+	name          string
+	parent        string
+	summary       string
+	usageExamples []string
+	prose         string
+	printer       *Printer
+	aliases       []string
+	isTLC         bool
 }
 
-func cleanseKey(key string) string {
-	return keyCleansePattern.ReplaceAllString(strings.ToLower(key), "")
+func TopLevelCommand() *Command {
+	base := filepath.Base(os.Args[0])
+	out := NewPrinter()
+	return topLevelCommand(base, out)
 }
 
-func newCommand(key, parent, shortUsage string, printer *Printer) *Command {
-	key = cleanseKey(key)
-	fs := flag.NewFlagSet(key, flag.ContinueOnError)
-	fs.BoolP("help", "h", false, "Prints this usage information")
-	fs.SetInterspersed(false)
-	cmd := &Command{flags: fs, key: key, parent: parent, shortUsage: shortUsage, printer: printer}
-	if len(parent) > 0 {
-		cmd.CommandSet.parent = strings.Join([]string{parent, key}, " ")
-	} else {
-		cmd.CommandSet.parent = key
+func TopLevelCommandWithName(name string) *Command {
+	name = cleanseName(name)
+	out := NewPrinter()
+	return topLevelCommand(name, out)
+}
+
+func topLevelCommand(name string, out *Printer) *Command {
+	cmd, err := newCommand(cleanseName(name), "", "", out)
+	if err != nil {
+		out.Fatalln("Failed to create top level command:", err)
 	}
-	cmd.Usage("").Does(func(flags *flag.FlagSet, _ *Printer) error {
-		if flags.Usage == nil {
-			cmd.Usage("")
-		}
-		flags.Usage()
-		return nil
-	})
 	return cmd
+}
+
+func newCommand(name, parent, summary string, printer *Printer) (*Command, error) {
+	_name := cleanseName(name)
+	if len(name) == 0 {
+		return nil, fmt.Errorf("normalized name '%s' is blank", name)
+	}
+	summary = strings.TrimSpace(summary)
+	fs := flag.NewFlagSet(_name, FlagsErrorHandling)
+	flags := &Flags{FlagSet: fs}
+	flags.setHelpFlag()
+	flags.SetInterspersed(FlagsInterspersed)
+	cmd := &Command{
+		flags:   flags,
+		name:    _name,
+		parent:  parent,
+		isTLC:   len(parent) == 0,
+		summary: summary,
+		printer: printer,
+	}
+	flags.Usage = cmd.setupUsage(flags)
+	return cmd, nil
 }
 
 // Does specifies the [CommandFunc] that should be executed by this [Command].
@@ -67,233 +108,137 @@ func (c *Command) Does(commandFunc CommandFunc) *Command {
 	return c
 }
 
-// Parent retrieves the parent [Command] name.
-func (c *Command) Parent() string {
-	return c.parent
-}
-
 // CommandPath returns the reference chain for this [Command].
 func (c *Command) CommandPath() string {
-	return fmt.Sprintf("%s %s", c.parent, c.key)
+	if len(c.parent) == 0 {
+		return c.name
+	}
+	return fmt.Sprintf("%s %s", c.parent, c.name)
 }
 
-// Flags returns the [flag.FlagSet] for this [Command].
-func (c *Command) Flags() *flag.FlagSet {
+// Flags returns the [Flags] for this [Command].
+func (c *Command) Flags() *Flags {
 	return c.flags
 }
 
-// Usage allows specifying a longer description of the [Command] that will be output when a [HelpPatterns] flag is passed.
+// AddUsageExample adds an example of how the Command can be invoked, using placeholders for arguments and flags.
 //
-// The short description, flag usages, and sub-command usages will be appended to this description.
-func (c *Command) Usage(format string, args ...any) *Command {
-	text := fmt.Sprintf(format, args...)
-	if len(text) == 0 {
-		text = c.key
-	}
-	if len(c.Parent()) > 0 {
-		text = c.Parent() + " " + text
-	}
-	if len(text) > 0 {
-		text = `USAGE:
-` + text
-	}
-	c.flags.Usage = func() {
-		var buf strings.Builder
-		if len(text) == 0 {
-			buf.WriteString("\n" + c.shortUsage)
-		} else {
-			if !strings.HasSuffix(text, "\n") {
-				text += "\n"
-			}
-			buf.WriteString(fmt.Sprintf(`%s
+// Example:
+//
+//	FILE [MODE] [FLAGS]
+//
+// Parent commands and this command name will be used to prefix examples.
+func (c *Command) AddUsageExample(example string) {
+	c.usageExamples = append(c.usageExamples, example)
+}
 
-%s`, c.shortUsage, text))
-		}
-		buf.WriteString("\nFLAGS\n")
-		buf.WriteString(c.flags.FlagUsages())
-		if len(c.CommandSet.commands) > 0 {
-			buf.WriteString("\nCOMMANDS\n")
-			buf.WriteString(c.CommandUsages())
-		}
-		c.Printer().Print(buf.String())
-	}
+// SetUsageProse allows specifying a longer description of the [Command] that will be output when a usage information is requested.
+func (c *Command) SetUsageProse(format string, args ...any) *Command {
+	c.prose = fmt.Sprintf(format, args...)
 	return c
 }
 
 // Exec executes the command with given arguments, parsing flags.
 func (c *Command) Exec(args []string) error {
-	if err := c.CommandSet.Exec(args); err != nil {
-		if !errors.Is(err, ErrUnknownCommand) {
-			return err
+	if len(args) > 0 {
+		cmd, ok := c.resolveCommand(args[0])
+		if ok {
+			return cmd.Exec(args[1:])
 		}
-	} else {
-		return nil
-	}
-	if err := c.flags.Parse(args); err != nil {
-		return err
-	}
-	if val, _ := c.flags.GetBool("help"); val {
-		if c.flags.Usage == nil {
-			c.Usage("")
-		}
-		c.flags.Usage()
-		return nil
-	}
-	if err := runGlobalPreExec(); err != nil {
-		return err
 	}
 	out := c.Printer()
-	err := c.exec(c.flags, out)
-	if err != nil {
-		if errors.Is(err, &UsageError{}) {
-			out.Println(err.Error())
-			out.Println()
-			if c.flags.Usage == nil {
-				c.Usage("")
+	if c.isTLC && !testNoExit {
+		executeExit(args, c.exec, c.flags, out)
+		return nil
+	}
+	return executeErr(args, c.exec, c.flags, out)
+}
+
+func (c *Command) setupUsage(flags *Flags) func() {
+	return func() {
+		var (
+			buf strings.Builder
+			out = c.printer
+		)
+		addSep := func() func() {
+			prevPrint := false
+			return func() {
+				if prevPrint {
+					buf.WriteString("\n\n")
+				}
+				prevPrint = true
 			}
-			c.flags.Usage()
+		}()
+		if len(c.summary) > 0 {
+			addSep()
+			buf.WriteString(c.summary)
 		}
-		return err
+		if len(c.usageExamples) > 0 {
+			addSep()
+			for i, example := range c.usageExamples {
+				if i == 0 {
+					buf.WriteString(fmt.Sprintf("USAGE: %s %s", c.CommandPath(), example))
+				} else {
+					buf.WriteString(fmt.Sprintf("\n       %s %s", c.CommandPath(), example))
+				}
+			}
+		}
+		if len(c.prose) > 0 {
+			addSep()
+			buf.WriteString(c.prose)
+		}
+		if len(c.aliases) > 0 {
+			addSep()
+			buf.WriteString(fmt.Sprintf("ALIASES:\n\t%s\n", strings.Join(c.aliases, ", ")))
+		}
+		if flags.HasFlags() {
+			addSep()
+			buf.WriteString("FLAGS:\n")
+			buf.WriteString(flags.FlagUsages())
+		}
+		if len(c.cmds) > 0 {
+			addSep()
+			buf.WriteString("SUBCOMMANDS:\n")
+			for name, cmd := range c.cmds {
+				names := strings.Join(append([]string{name}, cmd.aliases...), ", ")
+				buf.WriteString(fmt.Sprintf("\t%s   %s\n", names, cmd.summary))
+			}
+		}
+		out.Print(buf.String())
 	}
-	return nil
 }
 
-// CommandSet is a group of [Command].
-type CommandSet struct {
-	commands map[string]*Command
-	aliases  map[string]*Command
-	printer  *Printer
-	parent   string
-}
-
-// NewCommandSet is used to set up a top level [CommandSet] as the root of a CLI's command structure.
-//
-// Note: the parent(s) passed to this function will be used to populate sub-command usage information.
-// So they should only contain the commands used to invoke this [CommandSet].
-func NewCommandSet(parent ...string) *CommandSet {
-	var _parent string
-	if len(parent) > 0 {
-		_parent = strings.Join(parent, " ")
-	}
-	return &CommandSet{printer: NewPrinter(), parent: _parent}
-}
-
-// Parent retrieves the parent [CommandSet] name.
-func (s *CommandSet) Parent() string {
-	return s.parent
-}
-
-// AddCommand adds a sub-command to this [CommandSet].
-// The key parameter will be cleansed to remove spaces, and normalize to lower-case.
+// AddCommand adds a sub-command to this [Command].
+// The name parameter will be cleansed to remove spaces, and normalize to lower-case.
 // Aliases may be added as a way to support shorter variants of the same [Command].
-func (s *CommandSet) AddCommand(key, shortUsage string, aliases ...string) *Command {
-	key = cleanseKey(key)
-	cmd := newCommand(key, s.parent, shortUsage, s.Printer())
-	if s.commands == nil {
-		s.commands = map[string]*Command{}
+func (c *Command) AddCommand(name, summary string, aliases ...string) *Command {
+	_name := cleanseName(name)
+	out := c.Printer()
+	if len(name) == 0 {
+		out.Fatalf("Invalid command name '%s'\n", name)
+		panic("invalid command name")
 	}
-	s.commands[key] = cmd
-	if len(aliases) > 0 {
-		_aliases := make([]string, 0, len(aliases))
-		for _, alias := range aliases {
-			alias = cleanseKey(alias)
-			if len(alias) == 0 {
-				continue
-			}
-			if s.aliases == nil {
-				s.aliases = map[string]*Command{}
-			}
-			s.aliases[alias] = cmd
-			_aliases = append(_aliases, alias)
-		}
-		slices.Sort(_aliases)
-		cmd.aliases = _aliases
+	_summary := strings.TrimSpace(summary)
+	if len(_summary) == 0 {
+		out.Fatalf("Command summary for '%s' is required\n", name)
+		panic("missing summary")
+	}
+	cmd, err := newCommand(_name, c.CommandPath(), _summary, out)
+	if err != nil {
+		out.Fatalf("Failed to create command '%s': %v\n", _name, err)
+		panic("failed to create command")
+	}
+	if err := c.addSubCommand(name, cmd, aliases...); err != nil {
+		out.Fatalf("Failed to add command '%s': %v", _name, err)
+		panic("failed to add sub-command")
 	}
 	return cmd
 }
 
-// Printer returns the cached [Printer] for this [CommandSet].
-func (s *CommandSet) Printer() *Printer {
-	if s.printer == nil {
-		s.printer = NewPrinter()
+// Printer returns the cached [Printer] for this [Command].
+func (c *Command) Printer() *Printer {
+	if c.printer == nil {
+		c.printer = NewPrinter()
 	}
-	return s.printer
-}
-
-// Exec executes this [CommandSet].
-// It's expected that the first 1+ arguments include the key/alias for a sub-command.
-func (s *CommandSet) Exec(args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("%w: no arguments", ErrUnknownCommand)
-	}
-	key := strings.ToLower(args[0])
-	cmd, ok := s.commands[key]
-	if !ok {
-		cmd, ok = s.aliases[key]
-		if !ok {
-			return fmt.Errorf("%w: %s", ErrUnknownCommand, args[0])
-		}
-	}
-	return cmd.Exec(args[1:])
-}
-
-// RespondUsage will print usage information with the given [Printer] if one of [HelpPatterns] is given as the first argument.
-// If usage information was printed, then true will be returned.
-func (s *CommandSet) RespondUsage(format string, vals ...any) bool {
-	args := os.Args[1:]
-	if len(args) == 0 {
-		return false
-	}
-	if slices.Contains(HelpPatterns, args[0]) {
-		text := fmt.Sprintf(format, vals...)
-		if len(text) > 0 {
-			text = strings.TrimSuffix("\n\n"+text, "\n")
-		}
-		usage := fmt.Sprintf(`%s%s
-
-COMMANDS:
-%s`, s.parent, text, s.CommandUsages())
-		s.printer.Print(usage)
-		return true
-	}
-	return false
-}
-
-// CommandUsages returns a string including the usage information for sub-commands in this [CommandSet].
-//
-// The sub-command keys will be sorted alphabetically before output.
-func (s *CommandSet) CommandUsages() string {
-	var (
-		buf         strings.Builder
-		cmds        []*Command
-		keys        = make([]string, len(s.commands))
-		withAliases = make([]string, len(s.commands))
-		maxLen      int
-		i           int
-	)
-	for key := range s.commands {
-		keys[i] = key
-		withAliases[i] = key
-		i++
-	}
-	slices.Sort(keys)
-	slices.Sort(withAliases)
-
-	cmds = make([]*Command, len(keys))
-	for i, key := range keys {
-		cmd := s.commands[key]
-		cmds[i] = cmd
-		if len(cmd.aliases) > 0 {
-			withAliases[i] = strings.Join(append([]string{key}, cmd.aliases...), ", ")
-		}
-		l := len(withAliases[i])
-		if l > maxLen {
-			maxLen = l
-		}
-	}
-	fmtStr := fmt.Sprintf("  %%-%ds\t%%s\n", maxLen)
-	for i, cmd := range cmds {
-		buf.WriteString(fmt.Sprintf(fmtStr, withAliases[i], cmd.shortUsage))
-	}
-	return buf.String()
+	return c.printer
 }

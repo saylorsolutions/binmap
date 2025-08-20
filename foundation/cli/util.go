@@ -3,6 +3,8 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"strings"
+	"unicode"
 )
 
 // MustGet is used with a [pflag.FlagSet] getter to panic if the flag is not defined, or is not the right type.
@@ -35,4 +37,37 @@ func MapArgs(args []string, minArgs int, targets ...*string) error {
 		*targets[i] = args[i]
 	}
 	return nil
+}
+
+func cleanseName(name string) string {
+	var (
+		buf         strings.Builder
+		prevSymbol  bool
+		leadingChar bool
+	)
+	for _, r := range name {
+		if !leadingChar {
+			if unicode.IsLetter(r) {
+				leadingChar = true
+				buf.WriteRune(unicode.ToLower(r))
+			}
+			continue
+		}
+		switch {
+		case unicode.IsLetter(r):
+			prevSymbol = false
+			buf.WriteRune(unicode.ToLower(r))
+		case unicode.IsNumber(r):
+			buf.WriteRune(r)
+		case r == '_':
+			fallthrough
+		case r == '-':
+			if prevSymbol {
+				continue
+			}
+			prevSymbol = true
+			buf.WriteRune('-')
+		}
+	}
+	return buf.String()
 }

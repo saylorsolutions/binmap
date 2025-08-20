@@ -2,11 +2,13 @@ package cli
 
 import (
 	"errors"
-	flag "github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
-	"os"
 	"testing"
 )
+
+func init() {
+	testSettings()
+}
 
 func TestUsageError_Is(t *testing.T) {
 	err := NewUsageError("test")
@@ -33,24 +35,22 @@ func TestUsageError_Error(t *testing.T) {
 }
 
 func ExampleNewUsageError() {
-	tlc := NewCommandSet("parent")
-	cmd := tlc.AddCommand("command", "test command")
-	cmd.Does(func(flags *flag.FlagSet, out *Printer) error {
+	testSettings()
+	tlc := TopLevelCommandWithName("parent")
+	cmd := tlc.AddCommand("another", "Another command!")
+	cmd.AddUsageExample("[FLAGS]")
+	cmd.Does(func(flags *Flags, out *Printer) error {
 		return NewUsageError("test usage error")
 	})
-	// Done for testing purposes
-	cmd.Printer().Redirect(os.Stdout)
 	// Error not handled for brevity
-	_ = tlc.Exec([]string{"command"})
+	_ = tlc.Exec([]string{"another"})
 
 	// Output:
 	// usage error: test usage error
+	// Another command!
 	//
-	// test command
+	// USAGE: parent another [FLAGS]
 	//
-	// USAGE:
-	// parent command
-	//
-	// FLAGS
+	// FLAGS:
 	//   -h, --help   Prints this usage information
 }
