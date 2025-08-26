@@ -1,6 +1,7 @@
 package bin
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -121,6 +122,26 @@ func OffsetData[O OffsetType, S SizeType](offset *O, data *[]byte, size *S) Mapp
 	})
 }
 
+func OffsetDataMapper[O OffsetType, S SizeType](offset *O, mapper Mapper, size *S) Mapper {
+	return Any(
+		func(r io.Reader, endian ByteOrder) error {
+			var data []byte
+			if err := OffsetData(offset, &data, size).Read(r, endian); err != nil {
+				return err
+			}
+			return mapper.Read(bytes.NewReader(data), endian)
+		},
+		func(w io.Writer, endian ByteOrder) error {
+			var buf bytes.Buffer
+			if err := mapper.Write(&buf, endian); err != nil {
+				return err
+			}
+			data := buf.Bytes()
+			return OffsetData(offset, &data, size).Write(w, endian)
+		},
+	)
+}
+
 // OffsetSection is a convenience structure provided as a mapping target for sections of a binary referenced by offset.
 //
 // The generic OffsetType and SizeType dictates the size of the values when read and written.
@@ -133,6 +154,7 @@ type OffsetSection[O OffsetType, S SizeType] struct {
 	Offset int64
 	Size   uint64
 	Data   []byte
+	Mapper Mapper
 }
 
 func (s *OffsetSection[O, S]) HeaderOffset() Mapper {
@@ -172,7 +194,20 @@ func (s *OffsetSection[O, S]) HeaderOffsetThenSize() Mapper {
 }
 
 func (s *OffsetSection[O, S]) SectionData() Mapper {
-	return OffsetData(&s.Offset, &s.Data, &s.Size)
+	return Any(
+		func(r io.Reader, endian ByteOrder) error {
+			if s.Mapper != nil {
+				return OffsetDataMapper(&s.Offset, s.Mapper, &s.Size).Read(r, endian)
+			}
+			return OffsetData(&s.Offset, &s.Data, &s.Size).Read(r, endian)
+		},
+		func(w io.Writer, endian ByteOrder) error {
+			if s.Mapper != nil {
+				return OffsetDataMapper(&s.Offset, s.Mapper, &s.Size).Write(w, endian)
+			}
+			return OffsetData(&s.Offset, &s.Data, &s.Size).Write(w, endian)
+		},
+	)
 }
 
 // LimitSizeToOffset sets the size of this OffsetSection such that it cannot overlap the readLimit offset.

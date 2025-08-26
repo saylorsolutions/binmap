@@ -1,6 +1,7 @@
 package bin
 
 import (
+	"bytes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"os"
@@ -153,4 +154,34 @@ func TestOffsetData_Read(t *testing.T) {
 			assert.Equal(t, tc.expected, result)
 		})
 	}
+}
+
+func TestOffsetDataMapper(t *testing.T) {
+	var buf bytes.Buffer
+	padding := bytes.Repeat([]byte{0xff}, 20)
+	expectedOffset := int64(8*2 + 20)
+	expectedData := []byte("This is a string that is encoded as an offset section")
+	expectedSize := uint64(len(expectedData))
+	endian := BigEndian
+
+	populate := MapSequence(
+		Offset(&expectedOffset),
+		Size(&expectedSize),
+		FixedBytes(&padding, 20),
+		FixedBytes(&expectedData, expectedSize),
+	)
+	require.NoError(t, populate.Write(&buf, endian))
+	seeker := bytes.NewReader(buf.Bytes())
+
+	var stringRead string
+	section := OffsetSection[int64, uint64]{}
+	section.Mapper = FixedString(&stringRead, int(expectedSize))
+	err := MapSequence(
+		section.HeaderOffsetThenSize(),
+		section.SectionData(),
+	).Read(seeker, endian)
+	require.NoError(t, err)
+	assert.Equal(t, expectedOffset, section.Offset)
+	assert.Equal(t, expectedSize, section.Size)
+	assert.Equal(t, string(expectedData), stringRead)
 }
