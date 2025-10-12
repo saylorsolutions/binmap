@@ -2,7 +2,7 @@ package main
 
 import (
 	_ "embed"
-	"github.com/saylorsolutions/binmap/foundation/cli"
+	"github.com/saylorsolutions/cli"
 	"log"
 	"os"
 	"path/filepath"
