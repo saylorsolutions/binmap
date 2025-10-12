@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -18,8 +19,8 @@ func (e *UsageError) Error() string {
 }
 
 func (e *UsageError) Is(err error) bool {
-	_, ok := err.(*UsageError)
-	return ok
+	var _err *UsageError
+	return errors.As(err, &_err)
 }
 
 func (e *UsageError) Unwrap() error {
