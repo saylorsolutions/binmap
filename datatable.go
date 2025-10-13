@@ -1,7 +1,6 @@
 package bin
 
 import (
-	"encoding/binary"
 	"errors"
 	"io"
 )
@@ -23,7 +22,7 @@ func DataTable(length *uint32, mappers ...FieldMapper) Mapper {
 		return nilMapping
 	}
 	return Any(
-		func(r io.Reader, endian binary.ByteOrder) error {
+		func(r io.Reader, endian ByteOrder) error {
 			if err := Size(length).Read(r, endian); err != nil {
 				return err
 			}
@@ -42,7 +41,7 @@ func DataTable(length *uint32, mappers ...FieldMapper) Mapper {
 			}
 			return nil
 		},
-		func(w io.Writer, endian binary.ByteOrder) error {
+		func(w io.Writer, endian ByteOrder) error {
 			l := *length
 			for _, m := range mappers {
 				if err := m.assertLen(l); err != nil {
@@ -70,10 +69,10 @@ func DataTable(length *uint32, mappers ...FieldMapper) Mapper {
 // FieldMapper provides the logic necessary to read and write DataTable fields.
 // Created with MapField.
 type FieldMapper interface {
-	readNext(r io.Reader, endian binary.ByteOrder) error
+	readNext(r io.Reader, endian ByteOrder) error
 	apply()
 	assertLen(uint32) error
-	writeNext(w io.Writer, endian binary.ByteOrder) error
+	writeNext(w io.Writer, endian ByteOrder) error
 }
 
 // MapField will associate a Mapper to each element in a target slice within a FieldMapper.
@@ -102,7 +101,7 @@ type fieldReader[T any] struct {
 	fn     func(*T) Mapper
 }
 
-func (fr *fieldReader[T]) readNext(r io.Reader, endian binary.ByteOrder) error {
+func (fr *fieldReader[T]) readNext(r io.Reader, endian ByteOrder) error {
 	var t T
 	if err := fr.fn(&t).Read(r, endian); err != nil {
 		return err
@@ -141,7 +140,7 @@ func (fw *fieldWriter[T]) next() *T {
 	return &t
 }
 
-func (fw *fieldWriter[T]) writeNext(w io.Writer, endian binary.ByteOrder) error {
+func (fw *fieldWriter[T]) writeNext(w io.Writer, endian ByteOrder) error {
 	if fw.wrPtr < uint32(len(*fw.target)) {
 		if err := fw.fn(fw.next()).Write(w, endian); err != nil {
 			return err

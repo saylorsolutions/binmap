@@ -24,11 +24,15 @@ There are other, *standardized* formats available that may be a better fit, depe
 
 ## Goals
 
-* I'd like to have an easier to use interface for reading/writing binary data.
-* I'd like to declare binary IO operations, execute them, and handle a single error at the end.
-* I'd like to be able to reuse binary IO operations, and even pass them into more complex pipelines.
-* I'd like to be able to declare dynamic behavior, like when the size of the next read is determined by the current field.
-* I'd like to declare a read loop based on a read field value, and pass the loop construct to a larger pipeline.
+- [x] I'd like to have an easier to use interface for reading/writing binary data.
+- [x] I'd like to declare binary IO operations, execute them, and handle a single error at the end.
+  * More complicated mappings can be simplified by generating mapping code with the [bingen command](https://pkg.go.dev/github.com/saylorsolutions/binmap/cmd/bingen) and mapping file.
+  * This command can be installed with `go install github.com/saylorsolutions/binmap/cmd/bingen@latest`
+- [x] I'd like to be able to reuse binary IO operations, and even pass them into more complex pipelines.
+- [ ] I'd like to be able to declare dynamic behavior, like when the size of the next read is determined by the current field.
+  - [x] This is implemented with sized byte slices, but not with more complex logic.
+- [x] I'd like to declare a read loop based on a read field value, and pass the loop construct to a larger pipeline.
+  * This "sequence of reads" behavior is provided by `MapSequence` and the `Mapper` interface.
 * ~~Struct tag field binding would be fantastic, but reflection is... fraught. I'll see how this goes, and I'll probably take some hints from how the stdlib is handling this.~~
   * There's too much possibility of dynamic or dependent logic with a lot of binary payloads, and the number of edge cases for implementing this is more than I want to deal with.
   * I'm pretty happy with the API for mapping definition so far, and I'd rather simplify that than get into reflection with struct field tags. I feel like it's much more understandable (and thus maintainable) code.
@@ -57,7 +61,7 @@ Keep in mind that type restrictions mostly come from what [binary.Read and binar
 * Bytes with `Byte`, and byte slices with `FixedBytes` and `LenBytes`.
 * Complex 64/128 with `Complex`.
 * Signed and unsigned varints with `Varint`/`Uvarint`.
-* General slice mappers are provided with `Slice`, `LenSlice`, and `DynamicSlice`.
+* General slice mappers are provided with `Slice`, `LenSlice`, `FixedSlice`, and `DynamicSlice`.
 * Size types with `Size`, which are restricted to any known-size, unsigned integer.
 * Strings, both with `FixedString` for fixed-width string fields, and null-terminated strings with `NullTermString`.
   * Plain strings are always encoded as UTF-8 strings.
@@ -67,6 +71,9 @@ Keep in mind that type restrictions mostly come from what [binary.Read and binar
 * As already mentioned, the `Any` mapper can be used to add arbitrary mapping logic for any type you'd like to express.
   * An `Any` mapper just needs a `ReadFunc` and `WriteFunc`.
   * This mapper function doesn't require a target because it's intended to be flexible, and the assumption is that a target would be available in a closure context.
+* Support for "magic numbers," or byte sequences that are usually used as prefixes for binary data.
+  * We don't usually want to store this data, but we want to ensure that we're reading the expected file format.
+  * If the magic number doesn't match when using `MagicNumber`, then `ErrMagicMismatch` will be returned.
 
 ## Common patterns
 
@@ -78,6 +85,8 @@ Fortunately, there are some commonly used patterns, library features, and guidel
 * Any given `Mapper` is not intended to live very long in memory. It's generally a single-use construct.
 * Mapping is not concurrency safe by default. This library makes no attempt to "lock/unlock" an object in any way before, during, or after (de)serialization, unless your mapper is wrapped with the `Lock` or `RWLock` helpers.
 * Panics that happen within a `Mapper`'s Read or Write methods will be propagated to the caller, unless it's wrapped with an `OnPanic` helper.
+* The `ByteOrder` of a `Mapper` will be based on the input endianness value, unless overridden by `MapEndian`.
+  * In this case, endianness can be based on the value of another field with `EndianInt`, or statically defined by one of the `Override*` `EndianIndicator`s.
 
 See the `example` directory for more details.
 
@@ -87,7 +96,6 @@ Expressing a mapper method that creates a consistent `Mapper` for your data in a
 
 ```golang
 import (
-	"encoding/binary"
 	bin "github.com/saylorsolutions/binmap"
 	"io"
 )
@@ -101,11 +109,11 @@ func (u *User) mapper() bin.Mapper {
 }
 
 func (u *User) Read(r io.Reader) error {
-	return u.mapper().Read(r, binary.BigEndian)
+	return u.mapper().Read(r, bin.BigEndian)
 }
 
 func (u *User) Write(w io.Writer) error {
-	return u.mapper().Write(w, binary.BigEndian)
+	return u.mapper().Write(w, bin.BigEndian)
 }
 ```
 
@@ -116,7 +124,6 @@ This provides a tremendous level of flexibility, since the result of `MapSequenc
 
 ```golang
 import (
-	"encoding/binary"
 	bin "github.com/saylorsolutions/binmap"
 	"io"
 )
@@ -136,11 +143,11 @@ func (u *User) mapper() bin.Mapper {
 }
 
 func (u *User) Read(r io.Reader) error {
-	return u.mapper().Read(r, binary.BigEndian)
+	return u.mapper().Read(r, bin.BigEndian)
 }
 
 func (u *User) Write(w io.Writer) error {
-	return u.mapper().Write(w, binary.BigEndian)
+	return u.mapper().Write(w, bin.BigEndian)
 }
 ```
 
@@ -156,7 +163,6 @@ Types included in your top-level structure can themselves have a mapper method t
 package main
 
 import (
-	"encoding/binary"
 	bin "github.com/saylorsolutions/binmap"
 	"io"
 )
@@ -193,11 +199,11 @@ func (u *User) mapper() bin.Mapper {
 }
 
 func (u *User) Read(r io.Reader) error {
-	return u.mapper().Read(r, binary.BigEndian)
+	return u.mapper().Read(r, bin.BigEndian)
 }
 
 func (u *User) Write(w io.Writer) error {
-	return u.mapper().Write(w, binary.BigEndian)
+	return u.mapper().Write(w, bin.BigEndian)
 }
 ```
 
@@ -265,7 +271,6 @@ This can be handled pretty easily with a little forethought.
 
 ```golang
 import (
-	"encoding/binary"
 	"errors"
 	bin "github.com/saylorsolutions/binmap"
 	"io"
@@ -292,7 +297,7 @@ func (u *User) mapperV2() bin.Mapper {
 
 func (u *User) mapper() bin.Mapper {
 	return bin.Any(
-		func(r io.Reader, endian binary.ByteOrder) error {
+		func(r io.Reader, endian ByteOrder) error {
 			var v version
 			if err := bin.Byte(&v).Read(r, endian); err != nil {
 				return err
@@ -306,7 +311,7 @@ func (u *User) mapper() bin.Mapper {
 				return errors.New("unknown version")
 			}
 		},
-		func(w io.Writer, endian binary.ByteOrder) error {
+		func(w io.Writer, endian bin.ByteOrder) error {
 			var v = v2
 			return bin.MapSequence(
 				bin.Byte(&v),
@@ -317,10 +322,10 @@ func (u *User) mapper() bin.Mapper {
 }
 
 func (u *User) Read(r io.Reader) error {
-	return u.mapper().Read(r, binary.BigEndian)
+	return u.mapper().Read(r, bin.BigEndian)
 }
 
 func (u *User) Write(w io.Writer) error {
-	return u.mapper().Write(w, binary.BigEndian)
+	return u.mapper().Write(w, bin.BigEndian)
 }
 ```

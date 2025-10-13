@@ -2,7 +2,6 @@ package bin
 
 import (
 	"bytes"
-	"encoding/binary"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -20,7 +19,7 @@ func TestLenBytes(t *testing.T) {
 
 	var (
 		buf    bytes.Buffer
-		endian = binary.BigEndian
+		endian = BigEndian
 	)
 	assert.NoError(t, m.Write(&buf, endian))
 	assert.Equal(t, 8, buf.Len())
@@ -43,7 +42,7 @@ func TestLenSlice(t *testing.T) {
 
 	var (
 		buf    bytes.Buffer
-		endian = binary.BigEndian
+		endian = BigEndian
 	)
 	assert.NoError(t, m.Write(&buf, endian))
 	test.len, test.data = 0, nil
@@ -61,7 +60,7 @@ func TestDynamicSlice(t *testing.T) {
 
 	var (
 		buf    bytes.Buffer
-		endian = binary.LittleEndian
+		endian = LittleEndian
 	)
 	assert.NoError(t, m.Write(&buf, endian))
 	data = nil
@@ -69,4 +68,18 @@ func TestDynamicSlice(t *testing.T) {
 	assert.NoError(t, m.Read(&buf, endian))
 	assert.Len(t, data, 3)
 	assert.Equal(t, []int16{1, -2, 3}, data)
+}
+
+func TestRemaining(t *testing.T) {
+	data := []byte{1, 2, 3, 4}
+	var readData []byte
+	m := Remaining(&readData, Byte)
+
+	assert.NoError(t, m.Read(bytes.NewReader(data), BigEndian))
+	assert.Equal(t, []byte{1, 2, 3, 4}, readData)
+
+	var writtenData bytes.Buffer
+	m = Remaining(&data, Byte)
+	assert.NoError(t, m.Write(&writtenData, BigEndian))
+	assert.Equal(t, data, writtenData.Bytes())
 }

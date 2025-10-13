@@ -6,7 +6,7 @@ import (
 )
 
 type SizeType interface {
-	uint8 | uint16 | uint32 | uint64
+	~uint8 | ~uint16 | ~uint32 | ~uint64
 }
 
 // Size maps any value that can reasonably be used to express a size.
@@ -15,32 +15,31 @@ func Size[S SizeType](size *S) Mapper {
 		return nilMapping
 	}
 	return &mapper{
-		read: func(r io.Reader, endian binary.ByteOrder) error {
+		read: func(r io.Reader, endian ByteOrder) error {
 			return binary.Read(r, endian, size)
 		},
-		write: func(w io.Writer, endian binary.ByteOrder) error {
+		write: func(w io.Writer, endian ByteOrder) error {
 			return binary.Write(w, endian, size)
 		},
 	}
 }
 
 // FixedBytes maps a byte slice of a known length.
-func FixedBytes[S SizeType](buf *[]byte, length S) Mapper {
+func FixedBytes(buf *[]byte, length uint64) Mapper {
 	if buf == nil {
 		return nilMapping
 	}
-	sz := uint64(length)
 	return &mapper{
-		read: func(r io.Reader, endian binary.ByteOrder) error {
-			_buf := make([]byte, sz)
+		read: func(r io.Reader, endian ByteOrder) error {
+			_buf := make([]byte, length)
 			if err := binary.Read(r, endian, _buf); err != nil {
 				return err
 			}
 			*buf = _buf
 			return nil
 		},
-		write: func(w io.Writer, endian binary.ByteOrder) error {
-			out := make([]byte, sz)
+		write: func(w io.Writer, endian ByteOrder) error {
+			out := make([]byte, length)
 			copy(out, *buf)
 			return binary.Write(w, endian, out)
 		},
@@ -58,17 +57,19 @@ func LenBytes[S SizeType](buf *[]byte, length *S) Mapper {
 		return nilMapping
 	}
 	return &mapper{
-		read: func(r io.Reader, endian binary.ByteOrder) error {
+		read: func(r io.Reader, endian ByteOrder) error {
 			if err := Size(length).Read(r, endian); err != nil {
 				return err
 			}
-			return FixedBytes(buf, *length).Read(r, endian)
+			sz := uint64(*length)
+			return FixedBytes(buf, sz).Read(r, endian)
 		},
-		write: func(w io.Writer, endian binary.ByteOrder) error {
+		write: func(w io.Writer, endian ByteOrder) error {
 			if err := Size(length).Write(w, endian); err != nil {
 				return err
 			}
-			return FixedBytes(buf, *length).Write(w, endian)
+			sz := uint64(*length)
+			return FixedBytes(buf, sz).Write(w, endian)
 		},
 	}
 }
@@ -82,7 +83,7 @@ func Slice[E any, S SizeType](target *[]E, count S, mapVal func(*E) Mapper) Mapp
 		return nilMapping
 	}
 	return &mapper{
-		read: func(r io.Reader, endian binary.ByteOrder) error {
+		read: func(r io.Reader, endian ByteOrder) error {
 			input := make([]E, count)
 			i := S(0)
 			for i < count {
@@ -97,7 +98,7 @@ func Slice[E any, S SizeType](target *[]E, count S, mapVal func(*E) Mapper) Mapp
 			*target = input
 			return nil
 		},
-		write: func(w io.Writer, endian binary.ByteOrder) error {
+		write: func(w io.Writer, endian ByteOrder) error {
 			output := make([]E, count)
 			copy(output, *target)
 			for _, out := range output {
@@ -120,13 +121,13 @@ func LenSlice[E any, S SizeType](target *[]E, count *S, mapVal func(*E) Mapper) 
 		return nilMapping
 	}
 	return &mapper{
-		read: func(r io.Reader, endian binary.ByteOrder) error {
+		read: func(r io.Reader, endian ByteOrder) error {
 			if err := Size(count).Read(r, endian); err != nil {
 				return err
 			}
 			return Slice(target, *count, mapVal).Read(r, endian)
 		},
-		write: func(w io.Writer, endian binary.ByteOrder) error {
+		write: func(w io.Writer, endian ByteOrder) error {
 			if err := Size(count).Write(w, endian); err != nil {
 				return err
 			}
@@ -144,13 +145,57 @@ func DynamicSlice[E any](target *[]E, mapVal func(*E) Mapper) Mapper {
 		return nilMapping
 	}
 	return &mapper{
-		read: func(r io.Reader, endian binary.ByteOrder) error {
+		read: func(r io.Reader, endian ByteOrder) error {
 			var length uint32
 			return LenSlice(target, &length, mapVal).Read(r, endian)
 		},
-		write: func(w io.Writer, endian binary.ByteOrder) error {
+		write: func(w io.Writer, endian ByteOrder) error {
 			var length = uint32(len(*target))
 			return LenSlice(target, &length, mapVal).Write(w, endian)
+		},
+	}
+}
+
+// Remaining reads using the provided [Mapper] until the end of the file, and writes the entire slice.
+// No leading length value is read or written.
+func Remaining[E any](target *[]E, mapVal func(*E) Mapper) Mapper {
+	if target == nil {
+		return nilMapping
+	}
+	return &mapper{
+		read: func(r io.Reader, endian ByteOrder) error {
+			var val E
+			for {
+				if err := mapVal(&val).Read(r, endian); err != nil {
+					if err == io.EOF {
+						return nil
+					}
+					return err
+				}
+				*target = append(*target, val)
+			}
+		},
+		write: func(w io.Writer, endian ByteOrder) error {
+			for _, val := range *target {
+				if err := mapVal(&val).Write(w, endian); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	}
+}
+
+// FixedPadding writes a padding amount of zero bytes, and reads through a fixed amount of bytes assumed to be padding.
+func FixedPadding(length uint64) Mapper {
+	return &mapper{
+		read: func(r io.Reader, endian ByteOrder) error {
+			var padding []byte
+			return FixedBytes(&padding, length).Read(r, endian)
+		},
+		write: func(w io.Writer, endian ByteOrder) error {
+			padding := make([]byte, length)
+			return FixedBytes(&padding, length).Write(w, endian)
 		},
 	}
 }

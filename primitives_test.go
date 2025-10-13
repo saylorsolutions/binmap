@@ -2,7 +2,6 @@ package bin
 
 import (
 	"bytes"
-	"encoding/binary"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -15,13 +14,13 @@ func TestByte(t *testing.T) {
 	)
 	buf.Write([]byte{0x01, 0x02})
 	m := MapSequence(Byte(&a), Byte(&b))
-	assert.NoError(t, m.Read(&buf, binary.BigEndian))
+	assert.NoError(t, m.Read(&buf, BigEndian))
 	assert.Equal(t, byte(0x01), a)
 	assert.Equal(t, byte(0x02), b)
 
 	a, b = b, a
 	buf.Reset()
-	assert.NoError(t, m.Write(&buf, binary.BigEndian))
+	assert.NoError(t, m.Write(&buf, BigEndian))
 	assert.Equal(t, []byte{0x02, 0x01}, buf.Bytes())
 }
 
@@ -33,20 +32,20 @@ func TestBool(t *testing.T) {
 	)
 	buf.Write([]byte{0x01, 0x01})
 	m := MapSequence(Bool(&a), Bool(&b))
-	assert.NoError(t, m.Read(&buf, binary.BigEndian))
+	assert.NoError(t, m.Read(&buf, BigEndian))
 	assert.Equal(t, true, a)
 	assert.Equal(t, true, b)
 
 	a, b = false, false
 	buf.Reset()
-	assert.NoError(t, m.Write(&buf, binary.BigEndian))
+	assert.NoError(t, m.Write(&buf, BigEndian))
 	assert.Equal(t, []byte{0x00, 0x00}, buf.Bytes())
 }
 
 func TestFloat(t *testing.T) {
 	var (
 		buf    bytes.Buffer
-		endian = binary.LittleEndian
+		endian = LittleEndian
 	)
 	f1 := float32(0.5)
 	f2 := 1.5
@@ -62,7 +61,7 @@ func TestFloat(t *testing.T) {
 func TestComplex(t *testing.T) {
 	var (
 		buf    bytes.Buffer
-		endian = binary.BigEndian
+		endian = BigEndian
 	)
 	c1 := complex(float32(3.14), float32(1))
 	c2 := complex(4.13, 5)
@@ -82,7 +81,7 @@ func TestComplex(t *testing.T) {
 func TestVarint(t *testing.T) {
 	var (
 		buf    bytes.Buffer
-		endian = binary.BigEndian
+		endian = BigEndian
 	)
 	v1 := int64(257)
 	v2 := int64(258)
@@ -102,7 +101,7 @@ func TestVarint(t *testing.T) {
 func TestUvarint(t *testing.T) {
 	var (
 		buf    bytes.Buffer
-		endian = binary.BigEndian
+		endian = BigEndian
 	)
 	v1 := uint64(257)
 	v2 := uint64(258)

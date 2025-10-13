@@ -11,10 +11,10 @@ func Byte(b *byte) Mapper {
 		return nilMapping
 	}
 	return &mapper{
-		read: func(r io.Reader, endian binary.ByteOrder) error {
+		read: func(r io.Reader, endian ByteOrder) error {
 			return binary.Read(r, endian, b)
 		},
-		write: func(w io.Writer, endian binary.ByteOrder) error {
+		write: func(w io.Writer, endian ByteOrder) error {
 			return binary.Write(w, endian, b)
 		},
 	}
@@ -26,17 +26,17 @@ func Bool(b *bool) Mapper {
 		return nilMapping
 	}
 	return &mapper{
-		read: func(r io.Reader, endian binary.ByteOrder) error {
+		read: func(r io.Reader, endian ByteOrder) error {
 			return binary.Read(r, endian, b)
 		},
-		write: func(w io.Writer, endian binary.ByteOrder) error {
+		write: func(w io.Writer, endian ByteOrder) error {
 			return binary.Write(w, endian, b)
 		},
 	}
 }
 
 type AnyInt interface {
-	int8 | int16 | int32 | int64 | uint8 | uint16 | uint32 | uint64
+	~int8 | ~int16 | ~int32 | ~int64 | ~uint8 | ~uint16 | ~uint32 | ~uint64
 }
 
 // Int will map any integer, excluding int.
@@ -45,17 +45,17 @@ func Int[T AnyInt](i *T) Mapper {
 		return nilMapping
 	}
 	return &mapper{
-		read: func(r io.Reader, endian binary.ByteOrder) error {
+		read: func(r io.Reader, endian ByteOrder) error {
 			return binary.Read(r, endian, i)
 		},
-		write: func(w io.Writer, endian binary.ByteOrder) error {
+		write: func(w io.Writer, endian ByteOrder) error {
 			return binary.Write(w, endian, i)
 		},
 	}
 }
 
 type AnyFloat interface {
-	float32 | float64
+	~float32 | ~float64
 }
 
 // Float will map any floating point value.
@@ -64,26 +64,26 @@ func Float[T AnyFloat](f *T) Mapper {
 		return nilMapping
 	}
 	return &mapper{
-		read: func(r io.Reader, endian binary.ByteOrder) error {
+		read: func(r io.Reader, endian ByteOrder) error {
 			return binary.Read(r, endian, f)
 		},
-		write: func(w io.Writer, endian binary.ByteOrder) error {
+		write: func(w io.Writer, endian ByteOrder) error {
 			return binary.Write(w, endian, f)
 		},
 	}
 }
 
 type AnyComplex interface {
-	complex64 | complex128
+	~complex64 | ~complex128
 }
 
 // Complex will map a complex64/128 number.
 func Complex[T AnyComplex](target *T) Mapper {
 	return Any(
-		func(r io.Reader, endian binary.ByteOrder) error {
+		func(r io.Reader, endian ByteOrder) error {
 			return binary.Read(r, endian, target)
 		},
-		func(w io.Writer, endian binary.ByteOrder) error {
+		func(w io.Writer, endian ByteOrder) error {
 			return binary.Write(w, endian, target)
 		},
 	)
@@ -114,7 +114,7 @@ func Varint(target *int64) Mapper {
 		return nilMapping
 	}
 	return Any(
-		func(r io.Reader, endian binary.ByteOrder) error {
+		func(r io.Reader, endian ByteOrder) error {
 			ubr := &unbufferedByteReader{reader: r}
 			val, err := binary.ReadVarint(ubr)
 			if err != nil {
@@ -123,7 +123,7 @@ func Varint(target *int64) Mapper {
 			*target = val
 			return nil
 		},
-		func(w io.Writer, endian binary.ByteOrder) error {
+		func(w io.Writer, endian ByteOrder) error {
 			buf := make([]byte, binary.MaxVarintLen64)
 			n := binary.PutVarint(buf, *target)
 			return binary.Write(w, endian, buf[:n])
@@ -138,7 +138,7 @@ func Uvarint(target *uint64) Mapper {
 		return nilMapping
 	}
 	return Any(
-		func(r io.Reader, endian binary.ByteOrder) error {
+		func(r io.Reader, endian ByteOrder) error {
 			ubr := &unbufferedByteReader{reader: r}
 			val, err := binary.ReadUvarint(ubr)
 			if err != nil {
@@ -147,7 +147,7 @@ func Uvarint(target *uint64) Mapper {
 			*target = val
 			return nil
 		},
-		func(w io.Writer, endian binary.ByteOrder) error {
+		func(w io.Writer, endian ByteOrder) error {
 			buf := make([]byte, binary.MaxVarintLen64)
 			n := binary.PutUvarint(buf, *target)
 			return binary.Write(w, endian, buf[:n])

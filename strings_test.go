@@ -2,7 +2,6 @@ package bin
 
 import (
 	"bytes"
-	"encoding/binary"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -13,7 +12,7 @@ func TestFixedString(t *testing.T) {
 	)
 	var (
 		buf    bytes.Buffer
-		endian = binary.BigEndian
+		endian = BigEndian
 	)
 	s := expected
 	m := FixedString(&s, 8)
@@ -34,7 +33,7 @@ func TestNullTermString(t *testing.T) {
 	)
 	var (
 		buf    bytes.Buffer
-		endian = binary.BigEndian
+		endian = BigEndian
 	)
 	s1 := expected
 	s2 := expected
@@ -60,7 +59,7 @@ func TestUni16FixedString(t *testing.T) {
 	)
 	var (
 		buf    bytes.Buffer
-		endian = binary.BigEndian
+		endian = BigEndian
 	)
 	s := expected
 	m := Uni16FixedString(&s, 8)
@@ -81,7 +80,7 @@ func TestUni16NullTermString(t *testing.T) {
 	)
 	var (
 		buf    bytes.Buffer
-		endian = binary.BigEndian
+		endian = BigEndian
 	)
 	s1 := expected
 	s2 := expected

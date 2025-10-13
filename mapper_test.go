@@ -2,7 +2,6 @@ package bin
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"github.com/stretchr/testify/assert"
 	"io"
@@ -24,9 +23,9 @@ func TestAny(t *testing.T) {
 	var (
 		buf bytes.Buffer
 	)
-	assert.NoError(t, m.Write(&buf, binary.BigEndian))
+	assert.NoError(t, m.Write(&buf, BigEndian))
 	test.a, test.b = 0, 0
-	assert.NoError(t, m.Read(&buf, binary.BigEndian))
+	assert.NoError(t, m.Read(&buf, BigEndian))
 	assert.Equal(t, int16(-5), test.a)
 	assert.Equal(t, uint64(27), test.b)
 }
@@ -36,13 +35,13 @@ func TestOverrideEndian(t *testing.T) {
 		expected = "Go"
 	)
 	s := expected
-	m := ValidateRead(OverrideEndian(Uni16NullTermString(&s), binary.LittleEndian), func(err error) error {
+	m := ValidateRead(OverrideEndian(Uni16NullTermString(&s), LittleEndian), func(err error) error {
 		assert.Equal(t, expected, s)
 		return err
 	})
 	var buf bytes.Buffer
 
-	assert.NoError(t, m.Write(&buf, binary.BigEndian))
+	assert.NoError(t, m.Write(&buf, BigEndian))
 	out := buf.Bytes()
 	assert.Equal(t, []byte{'G', 0, 'o', 0, 0, 0}, out)
 
@@ -50,7 +49,7 @@ func TestOverrideEndian(t *testing.T) {
 	buf.Write(out)
 	s = ""
 
-	assert.NoError(t, m.Read(&buf, binary.BigEndian))
+	assert.NoError(t, m.Read(&buf, BigEndian))
 }
 
 func TestEventHandler_Read(t *testing.T) {
@@ -84,7 +83,7 @@ func TestEventHandler_Read(t *testing.T) {
 			return ErrTest
 		},
 	})
-	assert.ErrorIs(t, m.Read(&buf, binary.BigEndian), ErrTest)
+	assert.ErrorIs(t, m.Read(&buf, BigEndian), ErrTest)
 }
 
 func TestEventHandler_Write(t *testing.T) {
@@ -120,7 +119,7 @@ func TestEventHandler_Write(t *testing.T) {
 			return ErrTest
 		},
 	})
-	assert.ErrorIs(t, m.Write(&buf, binary.LittleEndian), ErrTest)
+	assert.ErrorIs(t, m.Write(&buf, LittleEndian), ErrTest)
 }
 
 func TestEventHandler_ReadWrite_Neg(t *testing.T) {
@@ -140,10 +139,10 @@ func TestEventHandler_ReadWrite_Neg(t *testing.T) {
 
 func TestOnPanic(t *testing.T) {
 	mapping := Any(
-		func(r io.Reader, endian binary.ByteOrder) error {
+		func(r io.Reader, endian ByteOrder) error {
 			panic("reading")
 		},
-		func(w io.Writer, endian binary.ByteOrder) error {
+		func(w io.Writer, endian ByteOrder) error {
 			panic("writing")
 		},
 	)

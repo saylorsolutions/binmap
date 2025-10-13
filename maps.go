@@ -1,7 +1,6 @@
 package bin
 
 import (
-	"encoding/binary"
 	"io"
 )
 
@@ -13,7 +12,7 @@ func Map[K comparable, V any](target *map[K]V, keyMapper KeyMapper[K], valMapper
 		return nilMapping
 	}
 	return &mapper{
-		read: func(r io.Reader, endian binary.ByteOrder) error {
+		read: func(r io.Reader, endian ByteOrder) error {
 			m := map[K]V{}
 			var length uint32
 			if err := Size(&length).Read(r, endian); err != nil {
@@ -39,7 +38,7 @@ func Map[K comparable, V any](target *map[K]V, keyMapper KeyMapper[K], valMapper
 			*target = m
 			return nil
 		},
-		write: func(w io.Writer, endian binary.ByteOrder) error {
+		write: func(w io.Writer, endian ByteOrder) error {
 			var length = uint32(len(*target))
 			if err := Size(&length).Write(w, endian); err != nil {
 				return err
